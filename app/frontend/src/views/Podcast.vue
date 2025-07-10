@@ -6,7 +6,7 @@
     </div>
     
     <div class="coming-soon">
-      <el-icon size="64"><Headphones /></el-icon>
+      <el-icon size="64"><Headset /></el-icon>
       <h2>功能开发中...</h2>
       <p>AI播客功能正在紧急开发中，敬请期待！</p>
       <el-button type="primary" @click="$router.push('/')">
@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import { Headphones } from '@element-plus/icons-vue'
+import { Headset } from '@element-plus/icons-vue'
 </script>
 
 <style lang="scss" scoped>

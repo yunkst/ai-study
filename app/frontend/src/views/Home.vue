@@ -102,7 +102,7 @@ import {
   Setting,
   BookOpen,
   Target,
-  Headphones
+  Headset
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -128,7 +128,7 @@ const features = [
     name: 'podcast',
     title: 'AI播客',
     description: '个性化学习播客，随时随地学习',
-    icon: Headphones,
+    icon: Headset,
     route: '/podcast',
     badge: '新功能'
   },
