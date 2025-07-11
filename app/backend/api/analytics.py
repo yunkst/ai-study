@@ -39,6 +39,50 @@ async def get_user_id(request: Request) -> str:
     """从请求中获取用户ID，这里简化为默认用户"""
     return "default"
 
+# ================= 新增：概览接口 =================
+
+
+@router.get("")
+@router.get("/")
+async def get_learning_overview(
+    request: Request,
+    user_id: str = Depends(get_user_id)
+):
+    """学习概览，供前端首页 /analytics 使用"""
+    try:
+        perf = await analytics_service.analyze_user_performance(user_id)
+        if not perf:
+            raise HTTPException(status_code=404, detail="暂无学习数据")
+
+        hours = round(perf.get("total_study_time", 0) / 60.0, 2)
+        completed = perf.get("total_questions", 0)
+        accuracy = round(perf.get("accuracy_rate", 0) * 100, 2)
+
+        kp = perf.get("knowledge_points", {})
+        coverage = 0
+        if kp:
+            mastered = sum(1 for _k, v in kp.items() if v.get("mastery", 0) >= 0.8)
+            coverage = round(mastered / len(kp) * 100, 2)
+
+        domain_progress = [
+            {"domain": k, "percent": round(v.get("mastery", 0) * 100, 2)}
+            for k, v in kp.items()
+        ]
+
+        return {
+            "summary": {
+                "hours": hours,
+                "completed": completed,
+                "accuracy": accuracy,
+                "coverage": coverage
+            },
+            "domain_progress": domain_progress
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取学习概览失败: {e}")
+
 @router.get("/stats", response_model=LearningStats)
 async def get_learning_stats(
     request: Request,

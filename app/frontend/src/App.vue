@@ -5,15 +5,6 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-
-const authStore = useAuthStore()
-
-onMounted(() => {
-  // 应用启动时检查认证状态
-  authStore.checkAuthStatus()
-})
 </script>
 
 <style lang="scss">

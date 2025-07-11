@@ -5,6 +5,7 @@
 from fastapi import APIRouter, Request, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from pydantic import root_validator
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -37,11 +38,22 @@ class PodcastEpisode(BaseModel):
     error_message: Optional[str] = None
 
 class PodcastRequest(BaseModel):
-    topics: List[str]
+    # 兼容前端只传递单个 topic 的场景
+    topic: Optional[str] = None
+    topics: Optional[List[str]] = None
     duration_minutes: int = 15
     style: str = "conversation"  # conversation, lecture, qa
     title: Optional[str] = None
     description: Optional[str] = None
+
+    @root_validator(pre=True)
+    def _normalize_topics(cls, values):
+        """确保 topics 字段存在。若仅提供 topic，则转换为列表"""
+        single_topic = values.get("topic")
+        topics = values.get("topics")
+        if not topics and single_topic:
+            values["topics"] = [single_topic]
+        return values
 
 class TaskStatus(BaseModel):
     task_id: str

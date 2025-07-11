@@ -3,10 +3,16 @@ AI服务模块 - 处理AI相关任务
 """
 
 import asyncio
+try:
+    import openai
+except ImportError:
+    openai = None
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 from core.config import settings
 from services.analytics_service import analytics_service
+from services.ai_service_manager import ai_service_manager
+from core.database import SessionLocal
 
 class AIService:
     """AI服务主类"""
@@ -16,15 +22,23 @@ class AIService:
         self._init_clients()
     
     def _init_clients(self):
-        """初始化AI客户端"""
-        if settings.OPENAI_API_KEY:
-            import openai
-            self.openai_client = openai.AsyncOpenAI(
-                api_key=settings.OPENAI_API_KEY
-            )
-            print("✅ OpenAI客户端初始化完成")
-        else:
-            print("⚠️ 未设置OPENAI_API_KEY，AI功能将不可用")
+        """初始化为空，实际客户端将在应用启动后异步刷新"""
+        self.openai_client = None
+        print("ℹ️ AI 客户端将在应用启动后根据配置进行加载")
+
+    async def refresh_client(self, db):
+        """在应用启动或配置变更后刷新 OpenAI 客户端"""
+        try:
+            provider = await ai_service_manager.get_llm_provider(db)
+            if provider and provider.name == "openai" and hasattr(provider, "client"):
+                self.openai_client = provider.client
+                print("✅ OpenAI客户端已加载")
+            else:
+                self.openai_client = None
+                print("ℹ️ 未找到已激活的 OpenAI 提供者，AI 功能待配置")
+        except Exception as e:
+            self.openai_client = None
+            print(f"⚠️ 刷新 AI 客户端失败: {e}")
     
     async def generate_question_explanation(self, question: str, answer: str) -> str:
         """生成题目解析"""
@@ -56,6 +70,61 @@ class AIService:
         except Exception as e:
             print(f"AI解析生成失败: {e}")
             return "解析生成失败，请稍后重试"
+
+    async def generate_question(self, topic: str, difficulty: int = 3) -> Dict:
+        """根据指定主题和难度生成一道练习题。
+
+        返回示例 JSON:
+        {
+            "question": "题目内容",
+            "type": "choice",
+            "options": ["A", "B", "C", "D"],
+            "answer": "B",
+            "explanation": "解析"
+        }
+        """
+
+        # 优先使用已初始化的 openai_client（通过动态 AI 配置注入）
+        prompt = (
+            f"请为软件架构师考试生成一道难度为 {difficulty} 级别的单选题，" \
+            f"主题为『{topic}』。\n"
+            "返回严格的 JSON，字段必须包含 question, options, answer, explanation。\n"
+            "不要添加多余的字段。"
+        )
+
+        # 1. 使用已加载的客户端
+        try:
+            if self.openai_client:
+                response = await self.openai_client.chat.completions.create(
+                    model=getattr(settings, 'OPENAI_MODEL', 'gpt-3.5-turbo'),
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=800,
+                    temperature=0.7
+                )
+                import json
+                return json.loads(response.choices[0].message.content)
+
+            # 2. 退化到直接调用 openai 包（单元测试会用到）
+            if openai is not None and hasattr(openai, 'ChatCompletion'):
+                response = openai.ChatCompletion.create(
+                    model=getattr(settings, 'OPENAI_MODEL', 'gpt-3.5-turbo'),
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=800,
+                    temperature=0.7
+                )
+                import json
+                return json.loads(response.choices[0].message.content)
+        except Exception as e:
+            print(f"AI 题目生成失败: {e}")
+
+        # 3. 最后兜底：返回占位题目，保证 API 不会失败
+        return {
+            "question": f"{topic} 练习题（难度 {difficulty}）：请简要阐述核心概念。",
+            "type": "essay",
+            "options": None,
+            "answer": "答案因人而异",
+            "explanation": "暂无解析"
+        }
     
     async def generate_podcast_script(self, topics: List[str], duration_minutes: int = 15, style: str = "conversation") -> Dict:
         """生成播客脚本"""

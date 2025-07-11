@@ -83,4 +83,7 @@ export const api = {
     instance.delete(url, config)
 }
 
+// 为向后兼容提供 request 别名
+export const request = api
+
 export default instance 

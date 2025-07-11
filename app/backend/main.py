@@ -9,10 +9,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import settings
 from core.auth import verify_access_key
-from core.database import init_db
+from core.database import init_db, SessionLocal
 from core.scheduler import start_scheduler
+from core.logging_config import setup_logging
+from services.ai_service import ai_service
 
 from api import auth, questions, practice, podcast, analytics, admin, knowledge
+from api import public
+
+# 应用日志配置
+setup_logging()
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -38,6 +44,7 @@ app.include_router(podcast.router, prefix="/api/podcast", tags=["播客"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["分析"])
 app.include_router(admin.router, prefix="/api/admin", tags=["管理"])
 app.include_router(knowledge.router, tags=["知识体系"])
+app.include_router(public.router, prefix="/api", tags=["公共"])
 
 @app.on_event("startup")
 async def startup_event():
@@ -46,6 +53,13 @@ async def startup_event():
     
     # 初始化数据库
     await init_db()
+
+    # 刷新 AI 客户端（根据当前数据库配置加载）
+    db_session = SessionLocal()
+    try:
+        await ai_service.refresh_client(db_session)
+    finally:
+        db_session.close()
     
     # 启动后台任务调度器
     start_scheduler()

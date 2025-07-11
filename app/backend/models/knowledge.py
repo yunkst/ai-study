@@ -243,7 +243,7 @@ class DocumentChunk(Base):
     content_type = Column(String(50))  # text, code, table, image
     chapter = Column(String(200))  # 章节
     section = Column(String(200))  # 小节
-    metadata = Column(JSON)  # 元数据
+    meta = Column(JSON)  # 元数据 (避免使用保留关键字 metadata)
     embedding_model = Column(String(100))
     embedding_vector = Column(JSON)  # 存储向量（简化版，实际可用专门的向量数据库）
     chunk_length = Column(Integer)

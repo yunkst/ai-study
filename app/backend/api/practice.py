@@ -13,8 +13,31 @@ from models.question import Question, QuestionType, DifficultyLevel
 from models.user import User
 import random
 import json
+from services.ai_service import ai_service
 
 router = APIRouter()
+
+# ====== 新增：单题生成请求模型 ======
+
+
+class QuestionGenerateRequest(BaseModel):
+    topic: str
+    difficulty: Optional[int] = 3
+
+
+# ====== 新增：生成单题接口 ======
+
+
+@router.post("/generate")
+async def generate_single_question(
+    request_data: QuestionGenerateRequest,
+):
+    """根据主题生成一道练习题，供前端即时练习使用"""
+    try:
+        result = await ai_service.generate_question(request_data.topic, request_data.difficulty or 3)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"题目生成失败: {e}")
 
 class PracticeSessionCreate(BaseModel):
     knowledge_points: Optional[List[str]] = None

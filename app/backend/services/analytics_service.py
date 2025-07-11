@@ -29,13 +29,24 @@ class AnalyticsService:
             db = self._get_db()
             
             # 获取用户的练习会话
+            uid = int(user_id) if user_id.isdigit() else 1
             sessions = db.query(PracticeSessionModel).filter(
-                PracticeSessionModel.user_id == int(user_id) if user_id.isdigit() else 1
+                PracticeSessionModel.user_id == uid
             ).all()
             
             if not sessions:
-                # 如果没有真实数据，返回模拟数据
-                return self._get_mock_performance_data(user_id)
+                return {
+                    "user_id": user_id,
+                    "analysis_date": datetime.now().isoformat(),
+                    "total_questions": 0,
+                    "correct_answers": 0,
+                    "accuracy_rate": 0,
+                    "average_time_per_question": 0,
+                    "study_sessions": 0,
+                    "total_study_time": 0,
+                    "knowledge_points": {},
+                    "difficulty_analysis": {}
+                }
             
             # 计算总体统计
             total_questions = sum(session.total_questions for session in sessions)
@@ -47,7 +58,7 @@ class AnalyticsService:
             
             # 获取答案详情用于知识点分析
             all_answers = db.query(AnswerModel).join(PracticeSessionModel).filter(
-                PracticeSessionModel.user_id == int(user_id) if user_id.isdigit() else 1
+                PracticeSessionModel.user_id == uid
             ).all()
             
             # 分析知识点掌握情况
@@ -74,7 +85,7 @@ class AnalyticsService:
             
         except Exception as e:
             print(f"用户表现分析失败: {e}")
-            return self._get_mock_performance_data(user_id)
+            raise
     
     def _get_mock_performance_data(self, user_id: str) -> Dict:
         """获取模拟性能数据"""
@@ -263,14 +274,21 @@ class AnalyticsService:
             
             # 获取指定时间范围内的会话
             start_date = datetime.now() - timedelta(days=days)
+            uid = int(user_id) if user_id.isdigit() else 1
             sessions = db.query(PracticeSessionModel).filter(
-                PracticeSessionModel.user_id == int(user_id) if user_id.isdigit() else 1,
+                PracticeSessionModel.user_id == uid,
                 PracticeSessionModel.start_time >= start_date
             ).order_by(PracticeSessionModel.start_time).all()
             
             if not sessions:
                 db.close()
-                return self._get_mock_progress_data(user_id, days)
+                return {
+                    "user_id": user_id,
+                    "tracking_period": f"{days}天",
+                    "daily_stats": [],
+                    "trends": {},
+                    "achievements": []
+                }
             
             # 按日期聚合数据
             daily_stats = {}
@@ -326,7 +344,7 @@ class AnalyticsService:
             
         except Exception as e:
             print(f"进度跟踪失败: {e}")
-            return self._get_mock_progress_data(user_id, days)
+            raise
     
     def _get_mock_progress_data(self, user_id: str, days: int) -> Dict:
         """获取模拟进度数据"""

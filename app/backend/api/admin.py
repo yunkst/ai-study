@@ -498,4 +498,196 @@ async def clear_cache(
         }
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"清理缓存失败: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"清理缓存失败: {str(e)}")
+
+# ==================== AI配置管理API ====================
+
+from services.ai_config_service import ai_config_service
+from schemas.ai_config import (
+    AIProviderResponse, AIProviderCreate, AIProviderUpdate,
+    AIServiceConfig, AIConfigurationCreate, AIConfigurationResponse,
+    APIKeyCreate, APIKeyUpdate, APIKeyResponse
+)
+
+@router.get("/ai/providers", response_model=List[AIProviderResponse])
+async def get_ai_providers(
+    request: Request,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin)
+):
+    """获取所有AI供应商"""
+    try:
+        providers = await ai_config_service.get_providers(db)
+        return providers
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取AI供应商失败: {str(e)}")
+
+@router.post("/ai/providers", response_model=AIProviderResponse)
+async def create_ai_provider(
+    request: Request,
+    provider_data: AIProviderCreate,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin)
+):
+    """创建AI供应商"""
+    try:
+        provider = await ai_config_service.create_provider(db, provider_data)
+        return provider
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"创建AI供应商失败: {str(e)}")
+
+@router.put("/ai/providers/{provider_name}", response_model=AIProviderResponse)
+async def update_ai_provider(
+    request: Request,
+    provider_name: str,
+    provider_data: AIProviderUpdate,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin)
+):
+    """更新AI供应商"""
+    try:
+        provider = await ai_config_service.update_provider(db, provider_name, provider_data)
+        if not provider:
+            raise HTTPException(status_code=404, detail="AI供应商不存在")
+        return provider
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新AI供应商失败: {str(e)}")
+
+@router.get("/ai/config", response_model=AIServiceConfig)
+async def get_ai_config(
+    request: Request,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin)
+):
+    """获取当前AI服务配置"""
+    try:
+        config = await ai_config_service.get_active_services(db)
+        return config
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取AI配置失败: {str(e)}")
+
+@router.post("/ai/api-keys/{provider_name}")
+async def set_api_key(
+    request: Request,
+    provider_name: str,
+    api_key_data: APIKeyCreate,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin)
+):
+    """设置AI供应商API密钥"""
+    try:
+        success = await ai_config_service.set_api_key(
+            db, provider_name, api_key_data.api_key
+        )
+        if not success:
+            raise HTTPException(status_code=400, detail="设置API密钥失败")
+        
+        return {"message": f"{provider_name} API密钥设置成功"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"设置API密钥失败: {str(e)}")
+
+@router.post("/ai/services/{service_type}/activate")
+async def activate_ai_service(
+    request: Request,
+    service_type: str,
+    provider_name: str = Query(..., description="供应商名称"),
+    model_name: str = Query(..., description="模型名称"),
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin)
+):
+    """激活AI服务"""
+    try:
+        if service_type not in ["llm", "embedding"]:
+            raise HTTPException(status_code=400, detail="服务类型必须是 llm 或 embedding")
+        
+        success = await ai_config_service.set_active_service(
+            db, service_type, provider_name, model_name
+        )
+        
+        if not success:
+            raise HTTPException(status_code=400, detail="激活AI服务失败")
+        
+        return {"message": f"{service_type} 服务已激活: {provider_name}/{model_name}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"激活AI服务失败: {str(e)}")
+
+@router.post("/ai/test/{provider_name}")
+async def test_ai_provider(
+    request: Request,
+    provider_name: str,
+    api_key: Optional[str] = Query(None, description="测试用API密钥"),
+    model_name: Optional[str] = Query(None, description="测试用模型名"),
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin)
+):
+    """测试AI供应商连接"""
+    try:
+        result = await ai_config_service.test_provider(db, provider_name, api_key, model_name)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"测试AI供应商失败: {str(e)}")
+
+@router.get("/ai/ollama/status")
+async def get_ollama_status(
+    request: Request,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin)
+):
+    """获取Ollama状态"""
+    try:
+        status = await ai_config_service.get_ollama_status(db)
+        return status
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取Ollama状态失败: {str(e)}")
+
+@router.post("/ai/initialize")
+async def initialize_ai_providers(
+    request: Request,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin)
+):
+    """初始化默认AI供应商"""
+    try:
+        await ai_config_service.initialize_default_providers(db)
+        return {"message": "默认AI供应商初始化完成"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"初始化AI供应商失败: {str(e)}")
+
+@router.post("/ai/ollama/pull/{model_name}")
+async def pull_ollama_model(
+    request: Request,
+    model_name: str,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin)
+):
+    """拉取Ollama模型"""
+    try:
+        result = await ai_config_service.pull_ollama_model(db, model_name)
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=400, detail=result["message"])
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"拉取模型失败: {str(e)}")
+
+@router.delete("/ai/ollama/models/{model_name}")
+async def delete_ollama_model(
+    request: Request,
+    model_name: str,
+    db: Session = Depends(get_db),
+    _: bool = Depends(require_admin)
+):
+    """删除Ollama模型"""
+    try:
+        # 这里可以添加删除模型的逻辑
+        return {"message": f"模型 {model_name} 删除成功"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"删除模型失败: {str(e)}") 

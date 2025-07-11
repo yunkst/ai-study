@@ -59,7 +59,7 @@ class DocumentChunk(Base):
     source_file = Column(String, nullable=False)
     chunk_index = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)
-    metadata = Column(Text)  # JSON格式
+    meta = Column(Text)  # JSON格式 (避免 metadata 保留名)
     embedding_model = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -349,7 +349,7 @@ class RAGService:
                     DocumentChunk.id == chunk_id
                 ).first()
                 
-                metadata = {
+                metadata_info = {
                     "embedding_dimension": len(embedding),
                     "chunk_length": len(content),
                     "created_at": datetime.now().isoformat()
@@ -358,7 +358,7 @@ class RAGService:
                 if existing:
                     # 更新
                     existing.content = content
-                    existing.metadata = json.dumps(metadata)
+                    existing.meta = json.dumps(metadata_info)
                     existing.updated_at = datetime.utcnow()
                 else:
                     # 新建
@@ -367,7 +367,7 @@ class RAGService:
                         source_file=source_file,
                         chunk_index=chunk_index,
                         content=content,
-                        metadata=json.dumps(metadata),
+                        meta=json.dumps(metadata_info),
                         embedding_model=embedding_model
                     )
                     self.db_session.add(chunk)

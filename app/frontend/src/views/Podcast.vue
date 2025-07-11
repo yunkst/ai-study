@@ -1,23 +1,62 @@
 <template>
   <div class="podcast-container">
     <div class="podcast-header">
-      <h1>AI播客</h1>
-      <p>个性化学习播客生成系统</p>
+      <h1>AI 播客</h1>
+      <p>输入主题，生成个性化播客片段</p>
     </div>
     
-    <div class="coming-soon">
-      <el-icon size="64"><Headset /></el-icon>
-      <h2>功能开发中...</h2>
-      <p>AI播客功能正在紧急开发中，敬请期待！</p>
-      <el-button type="primary" @click="$router.push('/')">
-        返回首页
-      </el-button>
-    </div>
+    <el-form :model="form" inline class="podcast-form" @submit.prevent="generatePodcast">
+      <el-form-item label="主题">
+        <el-input v-model="form.topic" placeholder="例如：微服务架构" />
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" @click="generatePodcast" :loading="loading">生成播客</el-button>
+      </el-form-item>
+    </el-form>
+    
+    <el-card v-if="audioUrl" class="podcast-card" shadow="hover">
+      <template #header>
+        <span>播客片段</span>
+      </template>
+      <audio :src="audioUrl" controls style="width: 100%" />
+    </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Headset } from '@element-plus/icons-vue'
+import { ref } from 'vue'
+import { ElMessage } from 'element-plus'
+
+const form = ref({ topic: '' })
+const audioUrl = ref('')
+const loading = ref(false)
+
+const generatePodcast = async () => {
+  if (!form.value.topic) {
+    ElMessage.warning('请先输入主题')
+    return
+  }
+  loading.value = true
+  try {
+    const resp = await fetch('/api/podcast/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form.value)
+    })
+    if (resp.ok) {
+      const data = await resp.json()
+      audioUrl.value = data.url
+    } else {
+      ElMessage.error('播客生成失败')
+      audioUrl.value = ''
+    }
+  } catch (e) {
+    ElMessage.error('播客生成失败')
+    audioUrl.value = ''
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -43,27 +82,16 @@ import { Headset } from '@element-plus/icons-vue'
   }
 }
 
-.coming-soon {
-  text-align: center;
+.podcast-form {
+  max-width: 600px;
+  margin: 0 auto 30px;
   background: white;
-  border-radius: 16px;
-  padding: 60px 40px;
-  max-width: 500px;
+  padding: 20px 24px;
+  border-radius: 8px;
+}
+
+.podcast-card {
+  max-width: 600px;
   margin: 0 auto;
-  
-  .el-icon {
-    color: #667eea;
-    margin-bottom: 24px;
-  }
-  
-  h2 {
-    color: #333;
-    margin-bottom: 16px;
-  }
-  
-  p {
-    color: #666;
-    margin-bottom: 32px;
-  }
 }
 </style> 
