@@ -148,6 +148,7 @@ const navigation = [
   { name: 'practice', title: '练习', icon: Edit, route: '/practice' },
   { name: 'podcast', title: '播客', icon: Microphone, route: '/podcast' },
   { name: 'analytics', title: '分析', icon: PieChart, route: '/analytics' },
+  { name: 'knowledge', title: '知识库', icon: BookOpen, route: '/knowledge' },
   { name: 'admin', title: '管理', icon: Setting, route: '/admin' }
 ]
 

@@ -12,7 +12,7 @@ from core.auth import verify_access_key
 from core.database import init_db
 from core.scheduler import start_scheduler
 
-from api import auth, questions, practice, podcast, analytics, admin
+from api import auth, questions, practice, podcast, analytics, admin, knowledge
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -37,6 +37,7 @@ app.include_router(practice.router, prefix="/api/practice", tags=["练习"])
 app.include_router(podcast.router, prefix="/api/podcast", tags=["播客"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["分析"])
 app.include_router(admin.router, prefix="/api/admin", tags=["管理"])
+app.include_router(knowledge.router, tags=["知识体系"])
 
 @app.on_event("startup")
 async def startup_event():

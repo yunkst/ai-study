@@ -33,6 +33,7 @@ services:
       - ./app/backend:/app
       - ./data:/app/data
       - ./config:/app/config
+      - ./System_Architect:/app/resources/System_Architect:ro
     environment:
       - DATABASE_URL=postgresql://user:password@postgres:5432/tutor_db
       - REDIS_URL=redis://redis:6379
