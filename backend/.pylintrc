@@ -1,0 +1,48 @@
+[MESSAGES CONTROL]
+# 禁用重复代码警告以避免输出截断
+# 禁用日志格式检查，专注于更严重的错误
+# 禁用导入错误检查（第三方库导入问题）
+# 禁用变量名检查
+# 保留重要的代码质量检查，只禁用真正不必要的检查项
+disable=duplicate-code,
+    import-error,
+    invalid-name,
+    trailing-whitespace,
+    missing-final-newline,
+    fixme,
+    import-outside-toplevel,
+    protected-access,
+    unused-argument,
+    redefined-outer-name,
+    too-few-public-methods,
+    useless-parent-delegation,
+    too-many-positional-arguments,
+    missing-class-docstring
+
+[FORMAT]
+# 最大行长度
+max-line-length=120
+
+[BASIC]
+# 允许的变量名模式
+variable-rgx=[a-z_][a-z0-9_]{2,30}$
+
+[DESIGN]
+# 最大参数数量
+max-args=10
+# 最大局部变量数量
+max-locals=20
+# 最大分支数量
+max-branches=15
+# 最大语句数量
+max-statements=60
+
+[SIMILARITIES]
+# 最小相似行数
+min-similarity-lines=6
+# 忽略注释
+ignore-comments=yes
+# 忽略文档字符串
+ignore-docstrings=yes
+# 忽略导入
+ignore-imports=yes

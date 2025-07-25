@@ -1,0 +1,1 @@
+1. 禁止直接使用alembic命令，alembic需要在docker启动的时候自动执行升级和迁移。

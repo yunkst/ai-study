@@ -1,84 +1,64 @@
 version: '3.8'
 
-# 项目名称
-name: ai-tutor
-
 services:
-  # 前端服务 (Vue3 开发模式)
-  frontend:
-    build:
-      context: app/frontend
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./app/frontend:/app
-      - /app/node_modules
-    environment:
-      - NODE_ENV=development
-    depends_on:
-      - backend
-    restart: unless-stopped
-    networks:
-      - app-network
-
-  # 后端服务 (FastAPI 开发模式)
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./app/backend:/app
-      - ./data:/app/data
-      - ./config:/app/config
-      - ./System_Architect:/app/resources/System_Architect:ro
-    environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/tutor_db
-      - REDIS_URL=redis://redis:6379
-      - ACCESS_KEY=${ACCESS_KEY:-}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - PYTHONPATH=/app
-      - APP_ENV=development
-    depends_on:
-      - postgres
-      - redis
-    restart: unless-stopped
-    networks:
-      - app-network
-
-  # PostgreSQL 数据库
   postgres:
-    image: postgres:15-alpine
+    image: postgres:17.5-alpine
+    container_name: ai_study_postgres
     environment:
-      POSTGRES_DB: tutor_db
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ai_study
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "15433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    ports:
-      - "5432:5432"
-    restart: unless-stopped
     networks:
-      - app-network
+      - ai_study_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
-  # Redis 缓存
-  redis:
-    image: redis:8-alpine
-    volumes:
-      - redis_data:/data
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ai_study_backend
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/ai_study
+      DIFY_API_URL: ${DIFY_API_URL:-http://localhost:8080}
+      DIFY_API_KEY: ${DIFY_API_KEY:-your_dify_api_key}
     ports:
-      - "6379:6379"
-    restart: unless-stopped
+      - "18000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
     networks:
-      - app-network
+      - ai_study_network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./backend_front
+      dockerfile: Dockerfile
+    container_name: ai_study_frontend
+    ports:
+      - "13000:3000"
+    volumes:
+      - ./backend_front:/app
+      - /app/node_modules
+    networks:
+      - ai_study_network
+    environment:
+      - VITE_API_BASE_URL=http://localhost:18000
 
 volumes:
   postgres_data:
-  redis_data:
 
 networks:
-  app-network:
-    driver: bridge 
+  ai_study_network:
+    driver: bridge
