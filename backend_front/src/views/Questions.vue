@@ -1,5 +1,5 @@
 <template>
-  <div class="questions">
+  <div class="questions-page">
     <div class="page-header">
       <h3>题目管理</h3>
       <el-button type="primary" @click="showCreateDialog = true">
@@ -185,30 +185,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, reactive, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { ElMessage, ElMessageBox, type FormInstance, type MessageParamsWithType } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import type { FormInstance } from 'element-plus'
-import axios from 'axios'
+import { subjectApi, questionApi, type Subject, type Question } from '../services/api'
 
-interface Subject {
-  id: number
-  name: string
-}
-
-interface Question {
-  id: number
-  title: string
-  content: string
-  question_type: string
-  options: string[]
-  correct_answer: string
-  explanation: string
-  difficulty: string
-  tags: string
-  subject: Subject
-  created_at: string
-}
+const route = useRoute()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -254,10 +237,10 @@ const rules = {
 // 获取学科列表
 const fetchSubjects = async () => {
   try {
-    const response = await axios.get('/api/v1/questions/subjects')
-    subjects.value = response.data
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.detail || '获取学科列表失败')
+    subjects.value = await subjectApi.getSubjects()
+  } catch (error: unknown) {
+    console.error('获取学科列表失败:', error)
+    // 错误处理已在HTTP服务中统一处理
   }
 }
 
@@ -270,11 +253,12 @@ const fetchQuestions = async () => {
       size: pagination.size,
       ...filters
     }
-    const response = await axios.get('/api/v1/questions/', { params })
-    questions.value = response.data.items
-    pagination.total = response.data.total
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.detail || '获取题目列表失败')
+    const response = await questionApi.getQuestions(params)
+    questions.value = response.items
+    pagination.total = response.total
+  } catch (error: unknown) {
+    console.error('获取题目列表失败:', error)
+    // 错误处理已在HTTP服务中统一处理
   } finally {
     loading.value = false
   }
@@ -336,17 +320,18 @@ const handleSubmit = async () => {
         }
         
         if (isEdit.value) {
-          await axios.put(`/api/v1/questions/${form.id}`, data)
-          ElMessage.success('题目更新成功')
+          await questionApi.updateQuestion(form.id, data)
+          ElMessage.success('题目更新成功' as MessageParamsWithType)
         } else {
-          await axios.post('/api/v1/questions/', data)
-          ElMessage.success('题目创建成功')
+          await questionApi.createQuestion(data)
+          ElMessage.success('题目创建成功' as MessageParamsWithType)
         }
         
         showCreateDialog.value = false
         fetchQuestions()
-      } catch (error: any) {
-        ElMessage.error(error.response?.data?.detail || '操作失败')
+      } catch (error: unknown) {
+        console.error('操作失败:', error)
+        // 错误处理已在HTTP服务中统一处理
       } finally {
         submitting.value = false
       }
@@ -367,12 +352,13 @@ const deleteQuestion = async (question: Question) => {
       }
     )
     
-    await axios.delete(`/api/v1/questions/${question.id}`)
-    ElMessage.success('删除成功')
+    await questionApi.deleteQuestion(question.id)
+    ElMessage.success('删除成功' as MessageParamsWithType)
     fetchQuestions()
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error !== 'cancel') {
-      ElMessage.error(error.response?.data?.detail || '删除失败')
+      console.error('删除失败:', error)
+      // 错误处理已在HTTP服务中统一处理
     }
   }
 }
@@ -431,12 +417,28 @@ const formatDate = (dateString: string) => {
 
 onMounted(() => {
   fetchSubjects()
+  
+  // 从路由参数中获取subject_id
+  const subjectId = route.params.subjectId
+  if (subjectId) {
+    filters.subject_id = subjectId.toString()
+  }
+  
   fetchQuestions()
+})
+
+// 监听路由参数变化
+watch(() => route.params.subjectId, (newSubjectId) => {
+  if (newSubjectId) {
+    filters.subject_id = newSubjectId.toString()
+    pagination.page = 1
+    fetchQuestions()
+  }
 })
 </script>
 
 <style scoped>
-.questions {
+.questions-page {
   padding: 20px;
 }
 
@@ -454,6 +456,15 @@ onMounted(() => {
 
 .filter-card {
   margin-bottom: 20px;
+}
+
+.filter-card .el-select {
+  width: 200px;
+}
+
+.el-form-item .el-select {
+  width: 100%;
+  min-width: 200px;
 }
 
 .option-item {

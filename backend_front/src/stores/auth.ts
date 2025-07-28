@@ -1,26 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import axios from 'axios'
-import { ElMessage } from 'element-plus'
-
-interface User {
-  id: number
-  username: string
-  email: string
-  is_active: boolean
-  created_at: string
-}
-
-interface LoginForm {
-  username: string
-  password: string
-}
-
-interface RegisterForm {
-  username: string
-  email: string
-  password: string
-}
+import { ElMessage, type MessageParamsWithType } from 'element-plus'
+import { authApi, type User, type LoginForm, type RegisterForm } from '../services/api'
+import httpService from '../services/http'
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem('token'))
@@ -29,17 +11,18 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!token.value)
 
-  // 设置axios默认headers
-  const setAuthHeader = (authToken: string) => {
-    axios.defaults.headers.common['Authorization'] = `Bearer ${authToken}`
-    localStorage.setItem('token', authToken)
+  // 设置认证令牌
+  const setAuthToken = (authToken: string, refreshToken?: string) => {
+    httpService.setToken(authToken)
+    if (refreshToken) {
+      httpService.setRefreshToken(refreshToken)
+    }
     token.value = authToken
   }
 
   // 清除认证信息
   const clearAuth = () => {
-    delete axios.defaults.headers.common['Authorization']
-    localStorage.removeItem('token')
+    httpService.clearToken()
     token.value = null
     user.value = null
   }
@@ -48,26 +31,25 @@ export const useAuthStore = defineStore('auth', () => {
   const login = async (loginForm: LoginForm) => {
     loading.value = true
     try {
-      const formData = new FormData()
-      formData.append('username', loginForm.username)
-      formData.append('password', loginForm.password)
-
-      const response = await axios.post('/api/v1/auth/login', formData, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      })
-
-      const { access_token } = response.data
-      setAuthHeader(access_token)
+      const response = await authApi.login(loginForm)
+      const { access_token, refresh_token } = response
+      setAuthToken(access_token, refresh_token)
       
       // 获取用户信息
       await getCurrentUser()
       
-      ElMessage.success('登录成功')
+      ElMessage.success('登录成功' as MessageParamsWithType)
       return true
-    } catch (error: any) {
-      ElMessage.error(error.response?.data?.detail || '登录失败')
+    } catch (error: unknown) {
+      // 针对登录接口的特定错误处理
+      if (error && typeof error === 'object' && 'response' in error) {
+        const httpError = error as { response?: { status?: number; data?: { detail?: string } } }
+        if (httpError.response?.status === 401) {
+          const errorMessage = httpError.response?.data?.detail || '用户名或密码错误'
+          ElMessage.error(errorMessage as MessageParamsWithType)
+        }
+      }
+      // 其他错误已在HTTP服务中统一处理
       return false
     } finally {
       loading.value = false
@@ -78,11 +60,11 @@ export const useAuthStore = defineStore('auth', () => {
   const register = async (registerForm: RegisterForm) => {
     loading.value = true
     try {
-      await axios.post('/api/v1/auth/register', registerForm)
-      ElMessage.success('注册成功，请登录')
+      await authApi.register(registerForm)
+      ElMessage.success('注册成功，请登录' as MessageParamsWithType)
       return true
-    } catch (error: any) {
-      ElMessage.error(error.response?.data?.detail || '注册失败')
+    } catch {
+      // 错误处理已在HTTP服务中统一处理
       return false
     } finally {
       loading.value = false
@@ -92,9 +74,9 @@ export const useAuthStore = defineStore('auth', () => {
   // 获取当前用户信息
   const getCurrentUser = async () => {
     try {
-      const response = await axios.get('/api/v1/auth/me')
-      user.value = response.data
-    } catch (error) {
+      const userData = await authApi.getCurrentUser()
+      user.value = userData
+    } catch {
       clearAuth()
     }
   }
@@ -102,12 +84,12 @@ export const useAuthStore = defineStore('auth', () => {
   // 登出
   const logout = () => {
     clearAuth()
-    ElMessage.success('已退出登录')
+    ElMessage.success('已退出登录' as MessageParamsWithType)
   }
 
   // 初始化时设置token
   if (token.value) {
-    setAuthHeader(token.value)
+    setAuthToken(token.value)
     getCurrentUser()
   }
 
@@ -119,6 +101,8 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     register,
     logout,
-    getCurrentUser
+    getCurrentUser,
+    setAuthToken,
+    clearAuth
   }
 })

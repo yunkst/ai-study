@@ -1,5 +1,5 @@
 <template>
-  <div class="register-container">
+  <div class="register-page">
     <div class="register-box">
       <h2>用户注册</h2>
       <el-form
@@ -69,7 +69,7 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage, type FormInstance, type FormRules, type MessageParamsWithType } from 'element-plus'
 import { User, Message, Lock } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
 
@@ -85,7 +85,7 @@ const registerForm = reactive({
   confirmPassword: ''
 })
 
-const validateConfirmPassword = (rule: any, value: any, callback: any) => {
+const validateConfirmPassword = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
   if (value === '') {
     callback(new Error('请再次输入密码'))
   } else if (value !== registerForm.password) {
@@ -128,7 +128,7 @@ const handleRegister = async () => {
     })
     
     if (success) {
-      ElMessage.success('注册成功，请登录')
+      ElMessage.success('注册成功，请登录' as MessageParamsWithType)
       router.push('/login')
     }
   } catch (error) {
@@ -140,7 +140,7 @@ const handleRegister = async () => {
 </script>
 
 <style scoped>
-.register-container {
+.register-page {
   min-height: 100vh;
   width: 100vw;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);

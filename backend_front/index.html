@@ -5,6 +5,29 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vite + Vue + TS</title>
+    <!-- Vue DevTools 支持 -->
+    <script>
+      // 确保Vue DevTools能够正常工作
+      if (typeof window !== 'undefined') {
+        window.__VUE_DEVTOOLS_GLOBAL_HOOK__ = window.__VUE_DEVTOOLS_GLOBAL_HOOK__ || {
+          Vue: null,
+          emit: function(event, ...args) {
+            console.debug('DevTools emit:', event, args)
+          },
+          on: function(event, fn) {
+            console.debug('DevTools on:', event)
+          },
+          once: function(event, fn) {
+            console.debug('DevTools once:', event)
+          },
+          off: function(event, fn) {
+            console.debug('DevTools off:', event)
+          },
+          apps: [],
+          enabled: true
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="app"></div>

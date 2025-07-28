@@ -10,14 +10,16 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import (
     create_access_token,
+    create_refresh_token,
     get_current_active_user,
     get_password_hash,
     verify_password,
+    verify_token,
 )
 from app.core.config import settings
 from app.db import models
 from app.db.database import get_db
-from app.schemas.auth import Token, User, UserCreate
+from app.schemas.auth import Token, User, UserCreate, RefreshTokenRequest
 
 router = APIRouter()
 
@@ -82,8 +84,15 @@ async def login(
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
+    refresh_token = create_refresh_token(
+        data={"sub": user.username}
+    )
 
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token, 
+        "refresh_token": refresh_token,
+        "token_type": "bearer"
+    }
 
 @router.get("/me", response_model=User)
 async def read_users_me(
@@ -94,12 +103,42 @@ async def read_users_me(
 
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
-    current_user: models.User = Depends(get_current_active_user)
+    request: RefreshTokenRequest,
+    db: Session = Depends(get_db)
 ):
     """刷新访问令牌"""
+    # 验证refresh token
+    token_data = verify_token(request.refresh_token, token_type="refresh")
+    if token_data is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # 获取用户信息
+    user = db.query(models.User).filter(
+        models.User.username == token_data.username
+    ).first()
+    
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # 生成新的access token和refresh token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": current_user.username}, expires_delta=access_token_expires
+    new_access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    new_refresh_token = create_refresh_token(
+        data={"sub": user.username}
     )
 
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
+        "token_type": "bearer"
+    }

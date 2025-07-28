@@ -36,6 +36,9 @@ RUN uv pip install -e . --system
 # 创建开发用的脚本目录
 RUN mkdir -p /app/scripts
 
+# 确保启动脚本存在并有执行权限
+RUN chmod +x /app/scripts/dev-entrypoint.sh
+
 # 创建便捷脚本
 RUN echo '#!/bin/bash\n\
 echo "=== AI图表系统开发环境 (uv) ==="\n\
@@ -111,14 +114,11 @@ ENV PYTHONUNBUFFERED=1
 # 暴露端口
 EXPOSE 8000
 
-# 复制并设置启动脚本权限
-COPY scripts/dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
-COPY scripts/migration-utils.sh /app/scripts/migration-utils.sh
-RUN chmod +x /usr/local/bin/dev-entrypoint.sh && \
-    chmod +x /app/scripts/migration-utils.sh
+# 设置脚本权限
+RUN chmod +x /app/scripts/migration-utils.sh
 
 # 将脚本添加到 PATH
 ENV PATH="/app/scripts:${PATH}"
 
 # 默认命令启动应用
-CMD ["dev-entrypoint.sh"]
+CMD ["python", "-m", "uvicorn", "main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]

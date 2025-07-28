@@ -1,0 +1,18 @@
+[
+  {
+    "section_id": "9342",
+    "section_name": "测试学科",
+    "question_id": "test001",
+    "question_title": "这是一道测试题目",
+    "question_type": "single_choice",
+    "option": ["选项A", "选项B", "选项C", "选项D"],
+    "answer": ["A"],
+    "analysis": "这是解析内容",
+    "raw_data": {
+      "content": "题目内容",
+      "difficulty": "medium",
+      "tags": ""
+    },
+    "crawl_time": "2024-01-01 12:00:00"
+  }
+]

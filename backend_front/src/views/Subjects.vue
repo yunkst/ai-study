@@ -1,5 +1,5 @@
 <template>
-  <div class="subjects">
+  <div class="subjects-page">
     <div class="page-header">
       <h3>学科管理</h3>
       <el-button type="primary" @click="showCreateDialog = true">
@@ -70,17 +70,9 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormInstance, type MessageParamsWithType } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import type { FormInstance } from 'element-plus'
-import axios from 'axios'
-
-interface Subject {
-  id: number
-  name: string
-  description?: string
-  created_at: string
-}
+import { subjectApi, type Subject } from '../services/api'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -103,10 +95,10 @@ const rules = {
 const fetchSubjects = async () => {
   loading.value = true
   try {
-    const response = await axios.get('/api/v1/questions/subjects')
-    subjects.value = response.data
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.detail || '获取学科列表失败')
+    subjects.value = await subjectApi.getSubjects()
+  } catch (error: unknown) {
+    console.error('获取学科列表失败:', error)
+    // 错误处理已在HTTP服务中统一处理
   } finally {
     loading.value = false
   }
@@ -129,24 +121,24 @@ const handleSubmit = async () => {
     if (valid) {
       submitting.value = true
       try {
+        const data = {
+          name: form.name,
+          description: form.description
+        }
+        
         if (isEdit.value) {
-          await axios.put(`/api/v1/questions/subjects/${form.id}`, {
-            name: form.name,
-            description: form.description
-          })
-          ElMessage.success('学科更新成功')
+          await subjectApi.updateSubject(form.id, data)
+          ElMessage.success('学科更新成功' as MessageParamsWithType)
         } else {
-          await axios.post('/api/v1/questions/subjects', {
-            name: form.name,
-            description: form.description
-          })
-          ElMessage.success('学科创建成功')
+          await subjectApi.createSubject(data)
+          ElMessage.success('学科创建成功' as MessageParamsWithType)
         }
         
         showCreateDialog.value = false
         fetchSubjects()
-      } catch (error: any) {
-        ElMessage.error(error.response?.data?.detail || '操作失败')
+      } catch (error: unknown) {
+        console.error('操作失败:', error)
+        // 错误处理已在HTTP服务中统一处理
       } finally {
         submitting.value = false
       }
@@ -167,12 +159,13 @@ const deleteSubject = async (subject: Subject) => {
       }
     )
     
-    await axios.delete(`/api/v1/questions/subjects/${subject.id}`)
-    ElMessage.success('删除成功')
+    await subjectApi.deleteSubject(subject.id)
+    ElMessage.success('删除成功' as MessageParamsWithType)
     fetchSubjects()
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error !== 'cancel') {
-      ElMessage.error(error.response?.data?.detail || '删除失败')
+      console.error('删除失败:', error)
+      // 错误处理已在HTTP服务中统一处理
     }
   }
 }
@@ -196,7 +189,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.subjects {
+.subjects-page {
   padding: 20px;
 }
 

@@ -5,10 +5,6 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
-      path: '/',
-      redirect: '/dashboard'
-    },
-    {
       path: '/login',
       name: 'Login',
       component: () => import('../views/Login.vue')
@@ -19,36 +15,65 @@ const router = createRouter({
       component: () => import('../views/Register.vue')
     },
     {
-      path: '/dashboard',
+      path: '/',
       name: 'Dashboard',
       component: () => import('../views/Dashboard.vue'),
+      meta: { requiresAuth: true },
+      children: [
+        {
+          path: '',
+          name: 'Home',
+          component: () => import('../views/Home.vue')
+        },
+        {
+          path: 'subjects',
+          name: 'Subjects',
+          component: () => import('../views/Subjects.vue')
+        },
+        {
+          path: 'questions',
+          name: 'Questions',
+          component: () => import('../views/Questions.vue')
+        },
+        {
+          path: 'question-banks',
+          name: 'QuestionBanks',
+          component: () => import('../views/QuestionBanks.vue')
+        },
+        {
+          path: 'comprehensive-question-banks',
+          name: 'ComprehensiveQuestionBanks',
+          component: () => import('../views/ComprehensiveQuestionBanks.vue')
+        },
+        {
+          path: 'ai-chat',
+          name: 'AIChat',
+          component: () => import('../views/AIChat.vue')
+        }
+      ]
+    },
+    {
+      path: '/dashboard',
+      redirect: '/'
+    },
+    {
+      path: '/subject/:subjectId',
+      name: 'SubjectDetail',
+      component: () => import('../views/SubjectDetail.vue'),
       meta: { requiresAuth: true }
     },
     {
-      path: '/subjects',
-      name: 'Subjects',
-      component: () => import('../views/Subjects.vue'),
+      path: '/subject/:subjectId/question-banks',
+      name: 'SubjectQuestionBanks',
+      component: () => import('../views/SubjectQuestionBanks.vue'),
       meta: { requiresAuth: true }
     },
     {
-      path: '/questions',
-      name: 'Questions',
+      path: '/subject/:subjectId/question-banks/:questionBankId/questions',
+      name: 'QuestionBankQuestions',
       component: () => import('../views/Questions.vue'),
       meta: { requiresAuth: true }
-    },
-    {
-      path: '/question-banks',
-      name: 'QuestionBanks',
-      component: () => import('../views/QuestionBanks.vue'),
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/ai-chat',
-      name: 'AIChat',
-      component: () => import('../views/AIChat.vue'),
-      meta: { requiresAuth: true }
-    },
-    
+    }
   ]
 })
 

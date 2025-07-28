@@ -56,6 +56,16 @@
         <el-form-item label="题库名称" prop="name">
           <el-input v-model="uploadForm.name" placeholder="请输入题库名称" />
         </el-form-item>
+        <el-form-item label="学科" prop="subject_id">
+          <el-select v-model="uploadForm.subject_id" placeholder="请选择学科" style="width: 100%">
+            <el-option
+              v-for="subject in subjects"
+              :key="subject.id"
+              :label="subject.name"
+              :value="subject.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="描述" prop="description">
           <el-input
             v-model="uploadForm.description"
@@ -142,9 +152,8 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormInstance, type UploadFile, type MessageParamsWithType } from 'element-plus'
 import { Upload } from '@element-plus/icons-vue'
-import type { FormInstance, UploadFile, UploadFiles } from 'element-plus'
 import axios from 'axios'
 
 interface QuestionBank {
@@ -160,6 +169,12 @@ interface QuestionBank {
   updated_at: string
 }
 
+interface Subject {
+  id: number
+  name: string
+  description?: string
+}
+
 const loading = ref(false)
 const uploading = ref(false)
 const showUploadDialog = ref(false)
@@ -169,16 +184,29 @@ const selectedQuestionBank = ref<QuestionBank | null>(null)
 const uploadFormRef = ref<FormInstance>()
 const uploadRef = ref()
 const fileList = ref<UploadFile[]>([])
+const subjects = ref<Subject[]>([])
 
 const uploadForm = reactive({
   name: '',
   description: '',
+  subject_id: null as number | null,
   file: null as File | null
 })
 
 const uploadRules = {
   name: [{ required: true, message: '请输入题库名称', trigger: 'blur' }],
+  subject_id: [{ required: true, message: '请选择学科', trigger: 'change' }],
   file: [{ required: true, message: '请选择题库文件', trigger: 'change' }]
+}
+
+// 获取学科列表
+const fetchSubjects = async () => {
+  try {
+    const response = await axios.get('/api/v1/questions/subjects')
+    subjects.value = response.data
+  } catch {
+    ElMessage.error('获取学科列表失败' as MessageParamsWithType)
+  }
 }
 
 // 获取题库列表
@@ -187,26 +215,26 @@ const fetchQuestionBanks = async () => {
   try {
     const response = await axios.get('/api/v1/question-banks/')
     questionBanks.value = response.data
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.detail || '获取题库列表失败')
+  } catch {
+    ElMessage.error('获取题库列表失败' as MessageParamsWithType)
   } finally {
     loading.value = false
   }
 }
 
 // 文件选择处理
-const handleFileChange = (file: UploadFile, _files: UploadFiles) => {
+const handleFileChange = (file: UploadFile) => {
   if (file.raw) {
     // 验证文件类型
     if (!file.name.endsWith('.json')) {
-      ElMessage.error('只能上传JSON格式的文件')
+      ElMessage.error('只能上传JSON格式的文件' as MessageParamsWithType)
       uploadRef.value.clearFiles()
       return
     }
     
     // 验证文件大小 (10MB)
     if (file.size && file.size > 10 * 1024 * 1024) {
-      ElMessage.error('文件大小不能超过10MB')
+      ElMessage.error('文件大小不能超过10MB' as MessageParamsWithType)
       uploadRef.value.clearFiles()
       return
     }
@@ -227,6 +255,7 @@ const handleUpload = async () => {
         const formData = new FormData()
         formData.append('name', uploadForm.name)
         formData.append('description', uploadForm.description)
+        formData.append('subject_id', uploadForm.subject_id?.toString() || '')
         formData.append('file', uploadForm.file)
         
         await axios.post('/api/v1/question-banks/upload', formData, {
@@ -235,11 +264,11 @@ const handleUpload = async () => {
           }
         })
         
-        ElMessage.success('题库上传成功')
+        ElMessage.success('题库上传成功' as MessageParamsWithType)
         showUploadDialog.value = false
         fetchQuestionBanks()
-      } catch (error: any) {
-        ElMessage.error(error.response?.data?.detail || '上传失败')
+      } catch {
+        ElMessage.error('上传失败' as MessageParamsWithType)
       } finally {
         uploading.value = false
       }
@@ -251,6 +280,7 @@ const handleUpload = async () => {
 const resetUploadForm = () => {
   uploadForm.name = ''
   uploadForm.description = ''
+  uploadForm.subject_id = null
   uploadForm.file = null
   fileList.value = []
   uploadRef.value?.clearFiles()
@@ -276,11 +306,11 @@ const deleteQuestionBank = async (questionBank: QuestionBank) => {
     )
     
     await axios.delete(`/api/v1/question-banks/${questionBank.id}`)
-    ElMessage.success('删除成功')
+    ElMessage.success('删除成功' as MessageParamsWithType)
     fetchQuestionBanks()
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error !== 'cancel') {
-      ElMessage.error(error.response?.data?.detail || '删除失败')
+      ElMessage.error('删除失败' as MessageParamsWithType)
     }
   }
 }
@@ -313,6 +343,7 @@ const formatDate = (dateString: string) => {
 }
 
 onMounted(() => {
+  fetchSubjects()
   fetchQuestionBanks()
 })
 </script>

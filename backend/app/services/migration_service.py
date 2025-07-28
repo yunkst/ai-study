@@ -207,26 +207,28 @@ class MigrationService:
         # 2. 检查是否已初始化Alembic
         if not self.check_alembic_table_exists():
             logger.info("Alembic not initialized, running initial migration...")
-            # 创建初始迁移
-            if not self.generate_migration("Initial migration"):
+            # 创建初始迁移并执行
+            success = (
+                self.generate_migration("Initial migration") and
+                self.run_migrations()
+            )
+            if not success:
                 return False
-            # 执行迁移
+        elif self.has_pending_migrations():
+            # 3. 检查是否有待执行的迁移
+            logger.info("Found pending migrations, applying...")
             if not self.run_migrations():
                 return False
-        else:
-            # 3. 检查是否有待执行的迁移
-            if self.has_pending_migrations():
-                logger.info("Found pending migrations, applying...")
-                if not self.run_migrations():
-                    return False
 
         # 4. 检查模型是否有新的变更
         if self.check_model_changes():
             logger.info("Detected model changes, generating new migration...")
-            if not self.generate_migration("Auto-generated model changes"):
-                return False
-            # 执行新生成的迁移
-            if not self.run_migrations():
+            # 生成新迁移并执行
+            success = (
+                self.generate_migration("Auto-generated model changes") and
+                self.run_migrations()
+            )
+            if not success:
                 return False
 
         logger.info("Migration check completed successfully")

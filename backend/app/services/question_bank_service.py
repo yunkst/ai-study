@@ -2,7 +2,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from sqlalchemy.orm import Session
 
@@ -18,12 +18,15 @@ class QuestionBankService:
     def __init__(self, db: Session):
         self.db = db
 
-    def create_question_bank(self, name: str, description: str, file_name: str) -> models.QuestionBank:
+    def create_question_bank(
+        self, name: str, description: str, file_name: str, subject_id: int | None = None
+    ) -> models.QuestionBank:
         """创建题库记录"""
         question_bank = models.QuestionBank(
             name=name,
             description=description,
             file_name=file_name,
+            subject_id=subject_id,
             status="pending"
         )
         self.db.add(question_bank)
@@ -31,7 +34,7 @@ class QuestionBankService:
         self.db.refresh(question_bank)
         return question_bank
 
-    def parse_question_bank_file(self, file_content: str) -> List[QuestionImportItem]:
+    def parse_question_bank_file(self, file_content: str) -> list[QuestionImportItem]:
         """解析题库JSON文件"""
         try:
             data = json.loads(file_content)
@@ -45,18 +48,43 @@ class QuestionBankService:
                 answers = item.get("answer", [])
                 answer_str = ",".join(answers) if answers else ""
                 
+                # 处理raw_data字段，确保传入字符串
+                raw_data = item.get("raw_data", "")
+                if isinstance(raw_data, dict):
+                    # 如果是字典，尝试获取文本内容
+                    content_text = raw_data.get("content", "") or raw_data.get("text", "") or str(raw_data)
+                else:
+                    content_text = str(raw_data) if raw_data else ""
+                
+                # 清理title
+                raw_title = item.get("question_title", "")
+                title = self._clean_html_content(raw_title)
+                
+                # 获取题目类型，优先使用show_type_name
+                show_type_name = ""
+                if "raw_data" in item and isinstance(item["raw_data"], dict):
+                    show_type_name = item["raw_data"].get("show_type_name", "")
+                
                 question_item = QuestionImportItem(
                     section_id=item.get("section_id"),
                     section_name=item.get("section_name", ""),
                     question_id=item.get("question_id"),
-                    title=item.get("question_title", ""),
-                    content=self._clean_html_content(item.get("raw_data", "")),
-                    question_type=self._map_question_type(item.get("question_type", 1)),
+                    question_title=item.get("question_title", ""),
+                    question_type=item.get("question_type", 1),
+                    answer_type=1,
+                    option=item.get("option", []),
+                    answer=item.get("answer", []),
+                    analysis=item.get("analysis", ""),
+                    raw_data=item.get("raw_data"),
+                    crawl_time=item.get("crawl_time"),
+                    title=title,
+                    content=self._clean_html_content(content_text),
                     options=options,
                     correct_answer=answer_str,
                     explanation=item.get("analysis", ""),
                     difficulty="medium",
-                    tags=""
+                    tags="",
+                    show_type_name=show_type_name
                 )
                 questions.append(question_item)
             
@@ -68,7 +96,7 @@ class QuestionBankService:
             logger.error("文件解析错误: %s", e)
             raise ValueError(f"文件解析失败: {e}") from e
 
-    def import_questions(self, question_bank_id: int, questions: List[QuestionImportItem]) -> Dict[str, Any]:
+    def import_questions(self, question_bank_id: int, questions: list[QuestionImportItem]) -> Dict[str, Any]:
         """导入题目到数据库"""
         question_bank = self.db.query(models.QuestionBank).filter(
             models.QuestionBank.id == question_bank_id
@@ -89,27 +117,28 @@ class QuestionBankService:
         try:
             for question_item in questions:
                 try:
-                    # 查找或创建学科
+                    # 根据section_name自动获取或创建学科
                     subject = self._get_or_create_subject(question_item.section_name)
                     
                     # 检查题目是否已存在（根据原始question_id）
                     existing_question = self.db.query(models.Question).filter(
-                        models.Question.title == question_item.question_title
+                        models.Question.title == question_item.title
                     ).first()
                     
                     if existing_question:
-                        logger.info("题目已存在，跳过: %s...", question_item.question_title[:50])
+                        logger.info("题目已存在，跳过: %s...", question_item.title[:50])
                         continue
                     
                     # 创建新题目
                     question = models.Question(
                         subject_id=subject.id,
-                        title=question_item.question_title,
-                        content=self._clean_html_content(question_item.question_title),
-                        question_type=self._map_question_type(question_item.question_type),
-                        options=self._format_options(question_item.option),
-                        correct_answer=",".join(question_item.answer),
-                        explanation=question_item.analysis or "",
+                        question_bank_id=question_bank.id,
+                        title=question_item.title,
+                        content=question_item.content,
+                        question_type=self._map_question_type_from_item(question_item.question_type, question_item.show_type_name),
+                        options=question_item.options,
+                        correct_answer=question_item.correct_answer,
+                        explanation=question_item.explanation,
                         difficulty=1,
                         tags=[question_item.section_name] if question_item.section_name else []
                     )
@@ -119,7 +148,7 @@ class QuestionBankService:
                     
                 except (ValueError, TypeError, AttributeError, KeyError) as e:
                     failed_count += 1
-                    error_msg = f"导入题目失败: {question_item.question_title[:50]}... - {str(e)}"
+                    error_msg = f"导入题目失败: {question_item.title[:50]}... - {str(e)}"
                     errors.append(error_msg)
                     logger.error("导入题目失败: %s", str(e))
             
@@ -152,8 +181,8 @@ class QuestionBankService:
         if not section_name:
             section_name = "未分类"
         
-        # 提取学科名称（去掉版本信息等）
-        subject_name = section_name.split(" - ")[0] if " - " in section_name else section_name
+        # 智能提取学科名称
+        subject_name = self._extract_subject_name(section_name)
         
         subject = self.db.query(models.Subject).filter(
             models.Subject.name == subject_name
@@ -168,6 +197,45 @@ class QuestionBankService:
             self.db.flush()  # 获取ID但不提交事务
         
         return subject
+    
+    def _extract_subject_name(self, section_name: str) -> str:
+        """智能提取学科名称"""
+        # 去掉版本信息
+        name = re.sub(r'（第.*?版）', '', section_name)
+        
+        # 定义学科映射规则
+        subject_mapping = {
+            '计算机系统基础知识': '计算机系统',
+            '信息系统基础知识': '信息系统',
+            '信息安全技术基础知识': '信息安全',
+            '软件工程基础知识': '软件工程',
+            '数据库设计基础知识': '数据库',
+            '系统架构设计基础知识': '系统架构',
+            '系统质量属性与架构评估': '架构评估',
+            '软件可靠性基础知识': '软件可靠性',
+            '软件架构的演化和维护': '架构演化',
+            '未来信息综合技术': '综合技术',
+            '信息系统架构设计理论与实践': '信息系统架构',
+            '层次式架构设计理论与实践': '层次式架构',
+            '云原生架构设计理论与实践': '云原生架构',
+            '面向服务架构设计理论与实践': 'SOA架构',
+            '嵌入式系统架构设计理论与实践': '嵌入式架构',
+            '通信系统架构设计理论与实践': '通信架构',
+            '安全架构设计理论与实践': '安全架构',
+            '大数据架构设计理论与实践': '大数据架构',
+            '绪论': '软件架构基础'
+        }
+        
+        # 尝试匹配映射规则
+        for key, value in subject_mapping.items():
+            if key in name:
+                return value
+        
+        # 如果没有匹配到，使用第一个部分作为学科名称
+        if ' - ' in name:
+            return name.split(' - ')[0].strip()
+        
+        return name.strip() if name.strip() else '未分类'
 
 
 
@@ -180,8 +248,42 @@ class QuestionBankService:
             9: "single_choice",  # 填空题当作单选处理
         }
         return type_mapping.get(question_type, "single_choice")
+    
+    def _map_question_type_from_item(self, question_type, show_type_name: str = "") -> str:
+        """从导入项映射题目类型"""
+        # 优先使用show_type_name字段
+        if show_type_name:
+            type_name_mapping = {
+                "单选题": "single_choice",
+                "多选题": "multiple_choice",
+                "判断题": "true_false",
+                "填空题": "fill_blank",
+                "简答题": "short_answer",
+                "问答题": "short_answer",
+                "essay": "short_answer"
+            }
+            mapped_type = type_name_mapping.get(show_type_name, "")
+            if mapped_type:
+                return mapped_type
+        
+        # 如果show_type_name没有匹配到，使用原有逻辑
+        if isinstance(question_type, str):
+            # 如果是字符串，直接返回或映射
+            string_mapping = {
+                "single_choice": "single_choice",
+                "multiple_choice": "multiple_choice",
+                "essay": "short_answer",
+                "填空题": "fill_blank",
+                "单选题": "single_choice",
+                "多选题": "multiple_choice",
+                "问答题": "short_answer"
+            }
+            return string_mapping.get(question_type, "single_choice")
+        if isinstance(question_type, int):
+            return self._map_question_type(question_type)
+        return "single_choice"
 
-    def _format_options(self, options: List[str] | None) -> Dict[str, str] | None:
+    def _format_options(self, options: list[str] | None) -> Dict[str, str] | None:
         """格式化选项"""
         if not options:
             return None
@@ -192,8 +294,17 @@ class QuestionBankService:
         
         return formatted_options
 
-    def _clean_html_content(self, content: str) -> str:
+    def _clean_html_content(self, content: str | dict | None) -> str:
         """清理HTML内容"""
+        # 确保content是字符串类型
+        if content is None:
+            return ""
+        if isinstance(content, dict):
+            # 如果是字典，尝试获取文本内容
+            content = content.get("content", "") or content.get("text", "") or str(content)
+        elif not isinstance(content, str):
+            content = str(content)
+        
         # 简单的HTML标签清理
         content = re.sub(r'<[^>]+>', '', content)
         content = content.replace('&nbsp;', ' ')
@@ -202,9 +313,24 @@ class QuestionBankService:
         content = content.replace('&amp;', '&')
         return content.strip()
 
-    def get_question_banks(self, skip: int = 0, limit: int = 100) -> List[models.QuestionBank]:
+    def get_question_banks(
+        self, skip: int = 0, limit: int = 100, subject_id: int | None = None
+    ) -> list[models.QuestionBank]:
         """获取题库列表"""
-        return self.db.query(models.QuestionBank).offset(skip).limit(limit).all()
+        query = self.db.query(models.QuestionBank)
+        if subject_id is not None:
+            query = query.filter(models.QuestionBank.subject_id == subject_id)
+        question_banks = query.offset(skip).limit(limit).all()
+        
+        # 为每个题库计算实际题目数量
+        for question_bank in question_banks:
+            # 计算特定题库的题目数量
+            actual_count = self.db.query(models.Question).filter(
+                models.Question.question_bank_id == question_bank.id
+            ).count()
+            question_bank.question_count = actual_count
+        
+        return question_banks
 
     def get_question_bank(self, question_bank_id: int) -> models.QuestionBank | None:
         """获取单个题库"""

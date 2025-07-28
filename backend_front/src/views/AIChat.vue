@@ -54,7 +54,7 @@
 
 <script setup lang="ts">
 import { ref, nextTick, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, type MessageParamsWithType } from 'element-plus'
 import axios from 'axios'
 
 interface Message {
@@ -103,8 +103,8 @@ const sendMessage = async () => {
     }
     
     messages.value.push(assistantMessage)
-  } catch (error: any) {
-    ElMessage.error(error.response?.data?.detail || 'AI服务暂时不可用')
+  } catch {
+    ElMessage.error('AI服务暂时不可用' as MessageParamsWithType)
     
     const errorMessage: Message = {
       id: ++messageId,

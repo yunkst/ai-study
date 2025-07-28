@@ -3,10 +3,10 @@ FROM node:24.3.0
 WORKDIR /app
 
 # Copy package files
-COPY package.json yarn.lock ./
+COPY package.json ./
 
 # Install dependencies
-RUN yarn install
+RUN npm install
 
 # Copy source code
 COPY . .
@@ -15,4 +15,4 @@ COPY . .
 EXPOSE 3000
 
 # Start development server
-CMD ["yarn", "dev"]
+CMD ["npm", "run", "dev"]

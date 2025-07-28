@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.api import api_router
 from app.core.config import settings
 from app.services.migration_service import migration_service
+from app.schemas.question_bank import rebuild_models
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -20,6 +21,11 @@ try:
         logger.error("Database migration check failed, exiting...")
         sys.exit(1)
     logger.info("Database migration check completed successfully")
+    
+    # 重建Pydantic模型以解决前向引用问题
+    logger.info("Rebuilding Pydantic models...")
+    rebuild_models()
+    logger.info("Pydantic models rebuilt successfully")
 except Exception as e:
     logger.error(f"Database migration check failed with exception: {e}")
     sys.exit(1)

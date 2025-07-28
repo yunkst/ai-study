@@ -3,8 +3,8 @@
 提供题库管理、上传等相关的API接口。
 """
 import logging
-from typing import List
 
+from typing import List
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
@@ -22,19 +22,20 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/question-banks", response_model=List[QuestionBank])
+@router.get("/", response_model=List[QuestionBank])
 async def get_question_banks(
     skip: int = 0,
     limit: int = 100,
+    subject_id: int | None = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
     """获取题库列表"""
     service = QuestionBankService(db)
-    return service.get_question_banks(skip=skip, limit=limit)
+    return service.get_question_banks(skip=skip, limit=limit, subject_id=subject_id)
 
 
-@router.get("/question-banks/{question_bank_id}", response_model=QuestionBank)
+@router.get("/{question_bank_id}", response_model=QuestionBank)
 async def get_question_bank(
     question_bank_id: int,
     db: Session = Depends(get_db),
@@ -48,10 +49,11 @@ async def get_question_bank(
     return question_bank
 
 
-@router.post("/question-banks/upload", response_model=QuestionBankImportResponse)
+@router.post("/upload", response_model=QuestionBankImportResponse)
 async def upload_question_bank(
     name: str = Form(..., description="题库名称"),
     description: str = Form(None, description="题库描述"),
+    subject_id: int = Form(..., description="学科ID（必填）"),
     file: UploadFile = File(..., description="题库JSON文件"),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
@@ -76,7 +78,8 @@ async def upload_question_bank(
         question_bank = service.create_question_bank(
             name=name,
             description=description,
-            file_name=file.filename
+            file_name=file.filename,
+            subject_id=subject_id
         )
         
         # 解析文件
@@ -98,7 +101,7 @@ async def upload_question_bank(
         raise HTTPException(status_code=500, detail="题库上传失败，请稍后重试") from e
 
 
-@router.put("/question-banks/{question_bank_id}", response_model=QuestionBank)
+@router.put("/{question_bank_id}", response_model=QuestionBank)
 async def update_question_bank(
     question_bank_id: int,
     question_bank_update: QuestionBankUpdate,
@@ -122,7 +125,7 @@ async def update_question_bank(
     return question_bank
 
 
-@router.delete("/question-banks/{question_bank_id}")
+@router.delete("/{question_bank_id}")
 async def delete_question_bank(
     question_bank_id: int,
     db: Session = Depends(get_db),
@@ -138,7 +141,7 @@ async def delete_question_bank(
     return {"message": "题库删除成功"}
 
 
-@router.post("/question-banks/{question_bank_id}/reimport")
+@router.post("/{question_bank_id}/reimport")
 async def reimport_question_bank(
     question_bank_id: int,
     db: Session = Depends(get_db),

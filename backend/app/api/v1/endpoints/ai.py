@@ -214,7 +214,7 @@ async def get_study_stats(
     total_study_time = db.query(models.StudyRecord).filter(
         models.StudyRecord.user_id == current_user.id
     ).with_entities(models.StudyRecord.study_time).all()
-    total_time = sum([record[0] for record in total_study_time])
+    total_time = sum(record[0] for record in total_study_time)
 
     # 获取学习过的学科
     subjects = db.query(models.Subject).join(

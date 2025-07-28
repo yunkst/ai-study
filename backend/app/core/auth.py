@@ -34,17 +34,28 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     else:
         expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "type": "access"})
     encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
     return encoded_jwt
 
-def verify_token(token: str) -> TokenData | None:
+def create_refresh_token(data: dict):
+    """创建刷新令牌"""
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(days=7)  # refresh token 7天过期
+    to_encode.update({"exp": expire, "type": "refresh"})
+    encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+    return encoded_jwt
+
+def verify_token(token: str, token_type: str = "access") -> TokenData | None:
     """验证令牌"""
     try:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
         username: str = payload.get("sub")
-        if username is None:
+        token_type_in_payload: str = payload.get("type")
+        
+        if username is None or token_type_in_payload != token_type:
             return None
+            
         token_data = TokenData(username=username)
         return token_data
     except JWTError:
