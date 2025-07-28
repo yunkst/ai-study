@@ -1,0 +1,175 @@
+<svg width="1200" height="800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .table-box { fill: #f8f9fa; stroke: #343a40; stroke-width: 2; }
+      .table-header { fill: #007bff; }
+      .table-title { fill: white; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; text-anchor: middle; }
+      .field-text { fill: #343a40; font-family: Arial, sans-serif; font-size: 11px; }
+      .pk-field { fill: #dc3545; font-weight: bold; }
+      .fk-field { fill: #28a745; }
+      .relationship-line { stroke: #6c757d; stroke-width: 2; fill: none; }
+      .relationship-text { fill: #495057; font-family: Arial, sans-serif; font-size: 10px; text-anchor: middle; }
+    </style>
+  </defs>
+  
+  <!-- Title -->
+  <text x="600" y="30" class="table-title" style="font-size: 18px; fill: #343a40;">AI学习系统数据库ER图</text>
+  
+  <!-- User Table -->
+  <g id="user-table">
+    <rect x="50" y="80" width="200" height="160" class="table-box"/>
+    <rect x="50" y="80" width="200" height="30" class="table-header"/>
+    <text x="150" y="100" class="table-title">User (用户)</text>
+    <text x="60" y="125" class="field-text pk-field">• id (PK)</text>
+    <text x="60" y="140" class="field-text">• username</text>
+    <text x="60" y="155" class="field-text">• email</text>
+    <text x="60" y="170" class="field-text">• hashed_password</text>
+    <text x="60" y="185" class="field-text">• is_active</text>
+    <text x="60" y="200" class="field-text">• created_at</text>
+    <text x="60" y="215" class="field-text">• updated_at</text>
+  </g>
+  
+  <!-- Subject Table -->
+  <g id="subject-table">
+    <rect x="500" y="80" width="200" height="130" class="table-box"/>
+    <rect x="500" y="80" width="200" height="30" class="table-header"/>
+    <text x="600" y="100" class="table-title">Subject (学科)</text>
+    <text x="510" y="125" class="field-text pk-field">• id (PK)</text>
+    <text x="510" y="140" class="field-text">• name</text>
+    <text x="510" y="155" class="field-text">• description</text>
+    <text x="510" y="170" class="field-text">• created_at</text>
+    <text x="510" y="185" class="field-text">• updated_at</text>
+  </g>
+  
+  <!-- QuestionBank Table -->
+  <g id="questionbank-table">
+    <rect x="800" y="80" width="220" height="200" class="table-box"/>
+    <rect x="800" y="80" width="220" height="30" class="table-header"/>
+    <text x="910" y="100" class="table-title">QuestionBank (题库)</text>
+    <text x="810" y="125" class="field-text pk-field">• id (PK)</text>
+    <text x="810" y="140" class="field-text fk-field">• subject_id (FK)</text>
+    <text x="810" y="155" class="field-text">• name</text>
+    <text x="810" y="170" class="field-text">• description</text>
+    <text x="810" y="185" class="field-text">• file_name</text>
+    <text x="810" y="200" class="field-text">• total_questions</text>
+    <text x="810" y="215" class="field-text">• imported_questions</text>
+    <text x="810" y="230" class="field-text">• status</text>
+    <text x="810" y="245" class="field-text">• error_message</text>
+    <text x="810" y="260" class="field-text">• created_at</text>
+  </g>
+  
+  <!-- Question Table -->
+  <g id="question-table">
+    <rect x="450" y="350" width="220" height="220" class="table-box"/>
+    <rect x="450" y="350" width="220" height="30" class="table-header"/>
+    <text x="560" y="370" class="table-title">Question (题目)</text>
+    <text x="460" y="395" class="field-text pk-field">• id (PK)</text>
+    <text x="460" y="410" class="field-text fk-field">• subject_id (FK)</text>
+    <text x="460" y="425" class="field-text fk-field">• question_bank_id (FK)</text>
+    <text x="460" y="440" class="field-text">• title</text>
+    <text x="460" y="455" class="field-text">• content</text>
+    <text x="460" y="470" class="field-text">• question_type</text>
+    <text x="460" y="485" class="field-text">• options (JSON)</text>
+    <text x="460" y="500" class="field-text">• correct_answer</text>
+    <text x="460" y="515" class="field-text">• explanation</text>
+    <text x="460" y="530" class="field-text">• difficulty</text>
+    <text x="460" y="545" class="field-text">• tags (JSON)</text>
+    <text x="460" y="560" class="field-text">• created_at</text>
+  </g>
+  
+  <!-- UserAnswer Table -->
+  <g id="useranswer-table">
+    <rect x="50" y="350" width="200" height="160" class="table-box"/>
+    <rect x="50" y="350" width="200" height="30" class="table-header"/>
+    <text x="150" y="370" class="table-title">UserAnswer (用户答案)</text>
+    <text x="60" y="395" class="field-text pk-field">• id (PK)</text>
+    <text x="60" y="410" class="field-text fk-field">• user_id (FK)</text>
+    <text x="60" y="425" class="field-text fk-field">• question_id (FK)</text>
+    <text x="60" y="440" class="field-text">• user_answer</text>
+    <text x="60" y="455" class="field-text">• is_correct</text>
+    <text x="60" y="470" class="field-text">• time_spent</text>
+    <text x="60" y="485" class="field-text">• created_at</text>
+  </g>
+  
+  <!-- StudyRecord Table -->
+  <g id="studyrecord-table">
+    <rect x="50" y="580" width="200" height="160" class="table-box"/>
+    <rect x="50" y="580" width="200" height="30" class="table-header"/>
+    <text x="150" y="600" class="table-title">StudyRecord (学习记录)</text>
+    <text x="60" y="625" class="field-text pk-field">• id (PK)</text>
+    <text x="60" y="640" class="field-text fk-field">• user_id (FK)</text>
+    <text x="60" y="655" class="field-text fk-field">• subject_id (FK)</text>
+    <text x="60" y="670" class="field-text">• study_date</text>
+    <text x="60" y="685" class="field-text">• questions_answered</text>
+    <text x="60" y="700" class="field-text">• correct_answers</text>
+    <text x="60" y="715" class="field-text">• study_time</text>
+  </g>
+  
+  <!-- AIConversation Table -->
+  <g id="aiconversation-table">
+    <rect x="800" y="350" width="220" height="180" class="table-box"/>
+    <rect x="800" y="350" width="220" height="30" class="table-header"/>
+    <text x="910" y="370" class="table-title">AIConversation (AI对话)</text>
+    <text x="810" y="395" class="field-text pk-field">• id (PK)</text>
+    <text x="810" y="410" class="field-text fk-field">• user_id (FK)</text>
+    <text x="810" y="425" class="field-text fk-field">• question_id (FK)</text>
+    <text x="810" y="440" class="field-text">• user_message</text>
+    <text x="810" y="455" class="field-text">• ai_response</text>
+    <text x="810" y="470" class="field-text">• conversation_type</text>
+    <text x="810" y="485" class="field-text">• created_at</text>
+  </g>
+  
+  <!-- Relationships -->
+  
+  <!-- User -> UserAnswer (1:N) -->
+  <path d="M 150 240 L 150 350" class="relationship-line" marker-end="url(#arrowhead)"/>
+  <text x="170" y="295" class="relationship-text">1:N</text>
+  
+  <!-- User -> StudyRecord (1:N) -->
+  <path d="M 150 240 L 150 580" class="relationship-line" marker-end="url(#arrowhead)"/>
+  <text x="170" y="410" class="relationship-text">1:N</text>
+  
+  <!-- User -> AIConversation (1:N) -->
+  <path d="M 250 160 L 800 410" class="relationship-line" marker-end="url(#arrowhead)"/>
+  <text x="525" y="285" class="relationship-text">1:N</text>
+  
+  <!-- Subject -> Question (1:N) -->
+  <path d="M 600 210 L 560 350" class="relationship-line" marker-end="url(#arrowhead)"/>
+  <text x="580" y="280" class="relationship-text">1:N</text>
+  
+  <!-- Subject -> QuestionBank (1:N) -->
+  <path d="M 700 145 L 800 145" class="relationship-line" marker-end="url(#arrowhead)"/>
+  <text x="750" y="135" class="relationship-text">1:N</text>
+  
+  <!-- Subject -> StudyRecord (1:N) -->
+  <path d="M 500 180 L 250 660" class="relationship-line" marker-end="url(#arrowhead)"/>
+  <text x="375" y="420" class="relationship-text">1:N</text>
+  
+  <!-- QuestionBank -> Question (1:N) -->
+  <path d="M 800 280 L 670 425" class="relationship-line" marker-end="url(#arrowhead)"/>
+  <text x="735" y="352" class="relationship-text">1:N</text>
+  
+  <!-- Question -> UserAnswer (1:N) -->
+  <path d="M 450 425 L 250 425" class="relationship-line" marker-end="url(#arrowhead)"/>
+  <text x="350" y="415" class="relationship-text">1:N</text>
+  
+  <!-- Question -> AIConversation (1:N) -->
+  <path d="M 670 425 L 800 425" class="relationship-line" marker-end="url(#arrowhead)"/>
+  <text x="735" y="415" class="relationship-text">1:N</text>
+  
+  <!-- Arrow marker definition -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#6c757d"/>
+    </marker>
+  </defs>
+  
+  <!-- Legend -->
+  <g id="legend">
+    <rect x="50" y="760" width="300" height="30" fill="#f8f9fa" stroke="#dee2e6"/>
+    <text x="60" y="780" class="field-text">图例: </text>
+    <text x="100" y="780" class="field-text pk-field">PK=主键</text>
+    <text x="160" y="780" class="field-text fk-field">FK=外键</text>
+    <text x="220" y="780" class="field-text">1:N=一对多关系</text>
+  </g>
+</svg>

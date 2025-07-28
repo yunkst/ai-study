@@ -1,0 +1,52 @@
+#!/bin/sh
+#
+# Git pre-commit hook for Flutter API规范检查
+# 在提交代码前自动检查API调用是否符合OpenAPI规范
+#
+
+echo "🔍 运行Flutter API规范检查..."
+
+# 检查是否存在API分析器
+if [ ! -f "lib/tools/api_analyzer_cli.dart" ]; then
+    echo "❌ API分析器不存在，跳过检查"
+    exit 0
+fi
+
+# 检查是否存在OpenAPI文档
+if [ ! -f "assets/openapi.json" ]; then
+    echo "❌ OpenAPI文档不存在，跳过检查"
+    exit 0
+fi
+
+# 获取已暂存的Dart文件
+staged_files=$(git diff --cached --name-only --diff-filter=ACM | grep '\.dart$')
+
+if [ -z "$staged_files" ]; then
+    echo "✅ 没有Dart文件变更，跳过API规范检查"
+    exit 0
+fi
+
+echo "📋 检查以下文件:"
+echo "$staged_files" | sed 's/^/  - /'
+echo ""
+
+# 运行API规范检查
+if command -v dart >/dev/null 2>&1; then
+    # 检查所有暂存的Dart文件
+    for file in $staged_files; do
+        echo "🔍 检查文件: $file"
+        dart run lib/tools/api_analyzer_cli.dart -t "$file" 2>/dev/null
+        if [ $? -ne 0 ]; then
+            echo "❌ API规范检查失败: $file"
+            echo "💡 请修复上述问题后重新提交"
+            echo "💡 或使用 'git commit --no-verify' 跳过检查"
+            exit 1
+        fi
+    done
+    
+    echo "✅ 所有文件通过API规范检查"
+else
+    echo "⚠️  未找到Dart命令，跳过API规范检查"
+fi
+
+exit 0

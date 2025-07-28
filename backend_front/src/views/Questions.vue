@@ -2,10 +2,21 @@
   <div class="questions-page">
     <div class="page-header">
       <h3>题目管理</h3>
-      <el-button type="primary" @click="showCreateDialog = true">
-        <el-icon><plus /></el-icon>
-        新增题目
-      </el-button>
+      <div class="header-actions">
+        <el-button 
+          v-if="selectedQuestions.length > 0" 
+          type="danger" 
+          @click="batchDeleteQuestions"
+          :loading="batchDeleting"
+        >
+          <el-icon><delete /></el-icon>
+          批量删除 ({{ selectedQuestions.length }})
+        </el-button>
+        <el-button type="primary" @click="showCreateDialog = true">
+          <el-icon><plus /></el-icon>
+          新增题目
+        </el-button>
+      </div>
     </div>
 
     <!-- 筛选条件 -->
@@ -39,7 +50,12 @@
 
     <!-- 题目列表 -->
     <el-card>
-      <el-table :data="questions" v-loading="loading">
+      <el-table 
+        :data="questions" 
+        v-loading="loading"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="title" label="题目标题" width="200" />
         <el-table-column prop="subject.name" label="学科" width="120" />
         <el-table-column prop="question_type" label="类型" width="120">
@@ -188,17 +204,19 @@
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox, type FormInstance, type MessageParamsWithType } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Delete } from '@element-plus/icons-vue'
 import { subjectApi, questionApi, type Subject, type Question } from '../services/api'
 
 const route = useRoute()
 
 const loading = ref(false)
 const submitting = ref(false)
+const batchDeleting = ref(false)
 const showCreateDialog = ref(false)
 const isEdit = ref(false)
 const questions = ref<Question[]>([])
 const subjects = ref<Subject[]>([])
+const selectedQuestions = ref<Question[]>([])
 const formRef = ref<FormInstance>()
 
 const filters = reactive({
@@ -363,6 +381,50 @@ const deleteQuestion = async (question: Question) => {
   }
 }
 
+// 处理选择变化
+const handleSelectionChange = (selection: Question[]) => {
+  selectedQuestions.value = selection
+}
+
+// 批量删除题目
+const batchDeleteQuestions = async () => {
+  if (selectedQuestions.value.length === 0) {
+    ElMessage.warning('请选择要删除的题目' as MessageParamsWithType)
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedQuestions.value.length} 个题目吗？`,
+      '确认批量删除',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    batchDeleting.value = true
+    const questions = [...selectedQuestions.value]
+    
+    // 逐个删除题目（因为批量删除API暂未实现）
+    for (const question of questions) {
+      await questionApi.deleteQuestion(question.id)
+    }
+    
+    ElMessage.success(`成功删除 ${questions.length} 个题目` as MessageParamsWithType)
+    selectedQuestions.value = []
+    fetchQuestions()
+  } catch (error: unknown) {
+    if (error !== 'cancel') {
+      console.error('批量删除失败:', error)
+      // 错误处理已在HTTP服务中统一处理
+    }
+  } finally {
+    batchDeleting.value = false
+  }
+}
+
 // 重置表单
 const resetForm = () => {
   isEdit.value = false
@@ -452,6 +514,12 @@ watch(() => route.params.subjectId, (newSubjectId) => {
 .page-header h3 {
   margin: 0;
   color: #333;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 
 .filter-card {

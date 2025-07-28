@@ -154,26 +154,9 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type UploadFile, type MessageParamsWithType } from 'element-plus'
 import { Upload } from '@element-plus/icons-vue'
-import axios from 'axios'
+import { subjectApi, questionBankApi, type Subject, type QuestionBank } from '../services/api'
 
-interface QuestionBank {
-  id: number
-  name: string
-  description?: string
-  file_name: string
-  total_questions: number
-  imported_questions: number
-  status: 'pending' | 'processing' | 'completed' | 'failed'
-  error_message?: string
-  created_at: string
-  updated_at: string
-}
-
-interface Subject {
-  id: number
-  name: string
-  description?: string
-}
+// 接口定义已从API服务中导入
 
 const loading = ref(false)
 const uploading = ref(false)
@@ -202,9 +185,9 @@ const uploadRules = {
 // 获取学科列表
 const fetchSubjects = async () => {
   try {
-    const response = await axios.get('/api/v1/questions/subjects')
-    subjects.value = response.data
-  } catch {
+    subjects.value = await subjectApi.getSubjects()
+  } catch (error: unknown) {
+    console.error('获取学科列表失败:', error)
     ElMessage.error('获取学科列表失败' as MessageParamsWithType)
   }
 }
@@ -213,9 +196,9 @@ const fetchSubjects = async () => {
 const fetchQuestionBanks = async () => {
   loading.value = true
   try {
-    const response = await axios.get('/api/v1/question-banks/')
-    questionBanks.value = response.data
-  } catch {
+    questionBanks.value = await questionBankApi.getQuestionBanks()
+  } catch (error: unknown) {
+    console.error('获取题库列表失败:', error)
     ElMessage.error('获取题库列表失败' as MessageParamsWithType)
   } finally {
     loading.value = false
@@ -249,25 +232,22 @@ const handleUpload = async () => {
   if (!uploadFormRef.value) return
   
   await uploadFormRef.value.validate(async (valid) => {
-    if (valid && uploadForm.file) {
+    if (valid && uploadForm.file && uploadForm.subject_id) {
       uploading.value = true
       try {
-        const formData = new FormData()
-        formData.append('name', uploadForm.name)
-        formData.append('description', uploadForm.description)
-        formData.append('subject_id', uploadForm.subject_id?.toString() || '')
-        formData.append('file', uploadForm.file)
-        
-        await axios.post('/api/v1/question-banks/upload', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
+        await questionBankApi.uploadQuestionBank({
+          name: uploadForm.name,
+          description: uploadForm.description,
+          subject_id: uploadForm.subject_id,
+          file: uploadForm.file
         })
         
         ElMessage.success('题库上传成功' as MessageParamsWithType)
         showUploadDialog.value = false
+        resetUploadForm()
         fetchQuestionBanks()
-      } catch {
+      } catch (error: unknown) {
+        console.error('上传失败:', error)
         ElMessage.error('上传失败' as MessageParamsWithType)
       } finally {
         uploading.value = false
@@ -305,7 +285,7 @@ const deleteQuestionBank = async (questionBank: QuestionBank) => {
       }
     )
     
-    await axios.delete(`/api/v1/question-banks/${questionBank.id}`)
+    await questionBankApi.deleteQuestionBank(questionBank.id)
     ElMessage.success('删除成功' as MessageParamsWithType)
     fetchQuestionBanks()
   } catch (error: unknown) {

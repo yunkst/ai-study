@@ -117,8 +117,9 @@ class QuestionBankService:
         try:
             for question_item in questions:
                 try:
-                    # 根据section_name自动获取或创建学科
-                    subject = self._get_or_create_subject(question_item.section_name)
+                    # 使用题库所属的学科ID，而不是根据section_name自动创建学科
+                    if not question_bank.subject_id:
+                        raise ValueError("题库未关联学科，无法导入题目")
                     
                     # 检查题目是否已存在（根据原始question_id）
                     existing_question = self.db.query(models.Question).filter(
@@ -131,7 +132,7 @@ class QuestionBankService:
                     
                     # 创建新题目
                     question = models.Question(
-                        subject_id=subject.id,
+                        subject_id=question_bank.subject_id,
                         question_bank_id=question_bank.id,
                         title=question_item.title,
                         content=question_item.content,

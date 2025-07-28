@@ -63,19 +63,48 @@ async def delete_subject(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
-    """删除学科（管理员功能）"""
+    """删除学科（管理员功能）- 级联删除相关题目和题库"""
     subject = db.query(models.Subject).filter(models.Subject.id == subject_id).first()
     if not subject:
         raise HTTPException(status_code=404, detail="学科不存在")
     
-    # 检查是否有关联的题目
+    # 统计要删除的数据
     question_count = db.query(models.Question).filter(models.Question.subject_id == subject_id).count()
-    if question_count > 0:
-        raise HTTPException(status_code=400, detail=f"无法删除学科，该学科下还有 {question_count} 道题目")
+    question_bank_count = db.query(models.QuestionBank).filter(models.QuestionBank.subject_id == subject_id).count()
     
+    # 获取该学科下的所有题库ID
+    question_bank_ids = db.query(models.QuestionBank.id).filter(models.QuestionBank.subject_id == subject_id).all()
+    question_bank_ids_list = [qb.id for qb in question_bank_ids]
+    
+    # 获取所有相关的题目ID（包括属于该学科的题目和引用该学科题库的题目）
+    question_ids_by_subject = db.query(models.Question.id).filter(models.Question.subject_id == subject_id).all()
+    question_ids_by_bank = []
+    if question_bank_ids_list:
+        question_ids_by_bank = db.query(models.Question.id).filter(models.Question.question_bank_id.in_(question_bank_ids_list)).all()
+    
+    # 合并所有题目ID
+    all_question_ids = list(set([q.id for q in question_ids_by_subject] + [q.id for q in question_ids_by_bank]))
+    
+    # 级联删除：先删除用户答题记录
+    if all_question_ids:
+        db.query(models.UserAnswer).filter(models.UserAnswer.question_id.in_(all_question_ids)).delete(synchronize_session=False)
+    
+    # 删除所有相关题目（包括属于该学科的和引用该学科题库的）
+    if all_question_ids:
+        db.query(models.Question).filter(models.Question.id.in_(all_question_ids)).delete(synchronize_session=False)
+    
+    # 删除题库
+    db.query(models.QuestionBank).filter(models.QuestionBank.subject_id == subject_id).delete(synchronize_session=False)
+    
+    # 删除学科
     db.delete(subject)
     db.commit()
-    return {"message": "学科删除成功"}
+    
+    return {
+        "message": "学科删除成功",
+        "deleted_questions": question_count,
+        "deleted_question_banks": question_bank_count
+    }
 
 # 题目相关接口
 @router.get("/", response_model=PaginatedResponse[Question])
@@ -210,6 +239,29 @@ async def update_question(
     db.commit()
     db.refresh(question)
     return question
+
+@router.delete("/questions/{question_id}")
+async def delete_question(
+    question_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """删除题目（管理员功能）"""
+    question = db.query(models.Question).filter(
+        models.Question.id == question_id
+    ).first()
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+    
+    # 删除相关的用户答题记录
+    db.query(models.UserAnswer).filter(
+        models.UserAnswer.question_id == question_id
+    ).delete()
+    
+    # 删除题目
+    db.delete(question)
+    db.commit()
+    return {"message": "题目删除成功"}
 
 # 答题相关接口
 @router.post("/questions/{question_id}/answer", response_model=AnswerResult)

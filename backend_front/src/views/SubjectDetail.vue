@@ -92,14 +92,7 @@ import {
   Document,
   DataAnalysis
 } from '@element-plus/icons-vue'
-import axios from 'axios'
-
-interface Subject {
-  id: number
-  name: string
-  description?: string
-  created_at: string
-}
+import { subjectApi, questionBankApi, type Subject } from '../services/api'
 
 const router = useRouter()
 const route = useRoute()
@@ -109,9 +102,12 @@ const questionBankCount = ref(0)
 // 获取学科详情
 const fetchSubjectDetail = async () => {
   try {
-    const subjectId = route.params.subjectId
-    const response = await axios.get(`/api/v1/questions/subjects/${subjectId}`)
-    subject.value = response.data
+    const subjectId = Number(route.params.subjectId)
+    const subjects = await subjectApi.getSubjects()
+    subject.value = subjects.find(s => s.id === subjectId) || null
+    if (!subject.value) {
+      throw new Error('学科不存在')
+    }
   } catch (error) {
     console.error('获取学科详情失败:', error)
     ElMessage.error('获取学科详情失败' as MessageParamsWithType)
@@ -122,9 +118,9 @@ const fetchSubjectDetail = async () => {
 // 获取题库数量
 const fetchQuestionBankCount = async () => {
   try {
-    const subjectId = route.params.subjectId
-    const response = await axios.get(`/api/v1/question-banks/?subject_id=${subjectId}`)
-    questionBankCount.value = response.data.length
+    const subjectId = Number(route.params.subjectId)
+    const questionBanks = await questionBankApi.getQuestionBanks()
+    questionBankCount.value = questionBanks.filter(qb => qb.subject_id === subjectId).length
   } catch (error) {
     console.error('获取题库数量失败:', error)
   }

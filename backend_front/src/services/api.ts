@@ -38,14 +38,27 @@ export interface Subject {
   created_at: string
 }
 
+export interface DeleteSubjectResponse {
+  message: string
+  deleted_questions: number
+  deleted_question_banks: number
+}
+
 // 题库相关接口
 export interface QuestionBank {
   id: number
   name: string
   description?: string
-  subject_id: number
+  subject_id?: number
+  file_name: string
+  total_questions: number
+  imported_questions: number
+  question_count?: number
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  error_message?: string
   created_at: string
-  updated_at: string
+  updated_at?: string
+  subject?: Subject
 }
 
 export interface CreateQuestionBankForm {
@@ -159,18 +172,30 @@ export const subjectApi = {
 
   /**
    * 更新学科
+   * TODO: 需要在后端实现此API端点 - PUT /api/v1/questions/subjects/{subject_id}
    */
-  async updateSubject(id: number, data: { name: string; description?: string }): Promise<Subject> {
-    const response = await httpService.put<Subject>(`/api/v1/questions/subjects/${id}`, data)
-    return response.data || response as unknown as Subject
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async updateSubject(_id: number, _data: { name: string; description?: string }): Promise<Subject> {
+    throw new Error('API endpoint not implemented: PUT /api/v1/questions/subjects/{subject_id}')
+    // const response = await httpService.put<Subject>(`/api/v1/questions/subjects/${id}`, data)
+    // return response.data || response as unknown as Subject
   },
 
   /**
    * 删除学科
    */
-  async deleteSubject(id: number): Promise<void> {
-    await httpService.delete(`/api/v1/questions/subjects/${id}`)
-  }
+  async deleteSubject(id: number): Promise<DeleteSubjectResponse> {
+    const response = await httpService.delete<DeleteSubjectResponse>(`/api/v1/questions/subjects/${id}`)
+    return response.data || response as unknown as DeleteSubjectResponse
+  },
+
+  /**
+   * 批量删除学科
+   * TODO: 需要在后端实现此API端点
+   */
+  // async batchDeleteSubjects(ids: number[]): Promise<void> {
+  //   await httpService.delete('/api/v1/subjects/batch', { data: { ids } })
+  // }
 }
 
 /**
@@ -195,10 +220,27 @@ export const questionBankApi = {
   },
 
   /**
-   * 创建题库
+   * 上传题库文件
    */
-  async createQuestionBank(questionBank: CreateQuestionBankForm): Promise<QuestionBank> {
-    const response = await httpService.post<QuestionBank>('/api/v1/question-banks/', questionBank)
+  async uploadQuestionBank(data: {
+    name: string
+    description?: string
+    subject_id: number
+    file: File
+  }): Promise<QuestionBank> {
+    const formData = new FormData()
+    formData.append('name', data.name)
+    if (data.description) {
+      formData.append('description', data.description)
+    }
+    formData.append('subject_id', data.subject_id.toString())
+    formData.append('file', data.file)
+    
+    const response = await httpService.post<QuestionBank>('/api/v1/question-banks/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
     return response.data || response as unknown as QuestionBank
   },
 
@@ -215,6 +257,22 @@ export const questionBankApi = {
    */
   async deleteQuestionBank(id: number): Promise<void> {
     await httpService.delete(`/api/v1/question-banks/${id}`)
+  },
+
+
+
+  /**
+   * 批量删除题库
+   */
+  async batchDeleteQuestionBanks(ids: number[]): Promise<void> {
+    await httpService.delete('/api/v1/question-banks/batch', { data: { ids } })
+  },
+
+  /**
+   * 重新导入题库
+   */
+  async retryImport(id: number): Promise<void> {
+    await httpService.post(`/api/v1/question-banks/${id}/reimport`)
   }
 }
 
@@ -240,7 +298,7 @@ export const questionApi = {
    * 根据ID获取题目
    */
   async getQuestion(id: number): Promise<Question> {
-    const response = await httpService.get<Question>(`/api/v1/questions/${id}`)
+    const response = await httpService.get<Question>(`/api/v1/questions/questions/${id}`)
     return response.data || response as unknown as Question
   },
 
@@ -258,7 +316,7 @@ export const questionApi = {
     difficulty: string
     tags?: string
   }): Promise<Question> {
-    const response = await httpService.post<Question>('/api/v1/questions/', data)
+    const response = await httpService.post<Question>('/api/v1/questions/questions', data)
     return response.data || response as unknown as Question
   },
 
@@ -276,7 +334,7 @@ export const questionApi = {
     difficulty?: string
     tags?: string
   }): Promise<Question> {
-    const response = await httpService.put<Question>(`/api/v1/questions/${id}`, data)
+    const response = await httpService.put<Question>(`/api/v1/questions/questions/${id}`, data)
     return response.data || response as unknown as Question
   },
 
@@ -284,7 +342,30 @@ export const questionApi = {
    * 删除题目
    */
   async deleteQuestion(id: number): Promise<void> {
-    await httpService.delete(`/api/v1/questions/${id}`)
+    await httpService.delete(`/api/v1/questions/questions/${id}`)
+  },
+
+  /**
+   * 批量删除题目
+   * TODO: 需要在后端实现此API端点
+   */
+  // async batchDeleteQuestions(ids: number[]): Promise<void> {
+  //   await httpService.delete('/api/v1/questions/batch', { data: { ids } })
+  // }
+}
+
+/**
+ * AI相关API
+ */
+export const aiApi = {
+  /**
+   * 发送聊天消息（使用流式接口）
+   */
+  async sendMessage(message: string): Promise<{ response: string }> {
+    const response = await httpService.post<{ response: string }>('/api/v1/ai/chat/stream', {
+      message
+    })
+    return response.data || response as unknown as { response: string }
   }
 }
 
@@ -293,5 +374,6 @@ export default {
   auth: authApi,
   subject: subjectApi,
   questionBank: questionBankApi,
-  question: questionApi
+  question: questionApi,
+  ai: aiApi
 }

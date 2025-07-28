@@ -2,14 +2,30 @@
   <div class="subjects-page">
     <div class="page-header">
       <h3>学科管理</h3>
-      <el-button type="primary" @click="showCreateDialog = true">
-        <el-icon><plus /></el-icon>
-        新增学科
-      </el-button>
+      <div class="header-actions">
+        <el-button 
+          v-if="selectedSubjects.length > 0" 
+          type="danger" 
+          @click="batchDeleteSubjects"
+          :loading="batchDeleting"
+        >
+          <el-icon><delete /></el-icon>
+          批量删除 ({{ selectedSubjects.length }})
+        </el-button>
+        <el-button type="primary" @click="showCreateDialog = true">
+          <el-icon><plus /></el-icon>
+          新增学科
+        </el-button>
+      </div>
     </div>
 
     <el-card>
-      <el-table :data="subjects" v-loading="loading">
+      <el-table 
+        :data="subjects" 
+        v-loading="loading"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="name" label="学科名称" />
         <el-table-column prop="description" label="描述" />
         <el-table-column prop="created_at" label="创建时间" width="180">
@@ -71,14 +87,16 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type MessageParamsWithType } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Delete } from '@element-plus/icons-vue'
 import { subjectApi, type Subject } from '../services/api'
 
 const loading = ref(false)
 const submitting = ref(false)
+const batchDeleting = ref(false)
 const showCreateDialog = ref(false)
 const isEdit = ref(false)
 const subjects = ref<Subject[]>([])
+const selectedSubjects = ref<Subject[]>([])
 const formRef = ref<FormInstance>()
 
 const form = reactive({
@@ -150,23 +168,80 @@ const handleSubmit = async () => {
 const deleteSubject = async (subject: Subject) => {
   try {
     await ElMessageBox.confirm(
-      `确定要删除学科 "${subject.name}" 吗？`,
+      `确定要删除学科 "${subject.name}" 吗？\n\n⚠️ 警告：删除学科将会同时删除该学科下的所有题目和题库，此操作不可恢复！`,
       '确认删除',
       {
-        confirmButtonText: '确定',
+        confirmButtonText: '确定删除',
         cancelButtonText: '取消',
-        type: 'warning'
+        type: 'warning',
+        dangerouslyUseHTMLString: false
       }
     )
     
-    await subjectApi.deleteSubject(subject.id)
-    ElMessage.success('删除成功' as MessageParamsWithType)
+    const result = await subjectApi.deleteSubject(subject.id)
+    // 显示删除结果信息
+    if (result && typeof result === 'object' && 'deleted_questions' in result) {
+      ElMessage.success(`删除成功！已删除 ${result.deleted_questions} 道题目和 ${result.deleted_question_banks} 个题库` as MessageParamsWithType)
+    } else {
+      ElMessage.success('删除成功' as MessageParamsWithType)
+    }
     fetchSubjects()
   } catch (error: unknown) {
     if (error !== 'cancel') {
       console.error('删除失败:', error)
       // 错误处理已在HTTP服务中统一处理
     }
+  }
+}
+
+// 处理选择变化
+const handleSelectionChange = (selection: Subject[]) => {
+  selectedSubjects.value = selection
+}
+
+// 批量删除学科
+const batchDeleteSubjects = async () => {
+  if (selectedSubjects.value.length === 0) {
+    ElMessage.warning('请选择要删除的学科' as MessageParamsWithType)
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedSubjects.value.length} 个学科吗？\n\n⚠️ 警告：删除学科将会同时删除这些学科下的所有题目和题库，此操作不可恢复！`,
+      '确认批量删除',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        dangerouslyUseHTMLString: false
+      }
+    )
+    
+    batchDeleting.value = true
+    const subjects = [...selectedSubjects.value]
+    let totalDeletedQuestions = 0
+    let totalDeletedQuestionBanks = 0
+    
+    // 逐个删除学科（因为批量删除API暂未实现）
+    for (const subject of subjects) {
+      const result = await subjectApi.deleteSubject(subject.id)
+      if (result && typeof result === 'object' && 'deleted_questions' in result) {
+        totalDeletedQuestions += result.deleted_questions || 0
+        totalDeletedQuestionBanks += result.deleted_question_banks || 0
+      }
+    }
+    
+    ElMessage.success(`成功删除 ${subjects.length} 个学科，${totalDeletedQuestions} 道题目，${totalDeletedQuestionBanks} 个题库` as MessageParamsWithType)
+    selectedSubjects.value = []
+    fetchSubjects()
+  } catch (error: unknown) {
+    if (error !== 'cancel') {
+      console.error('批量删除失败:', error)
+      // 错误处理已在HTTP服务中统一处理
+    }
+  } finally {
+    batchDeleting.value = false
   }
 }
 
@@ -202,7 +277,12 @@ onMounted(() => {
 
 .page-header h3 {
   margin: 0;
-  color: #333;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 
 .dialog-footer {

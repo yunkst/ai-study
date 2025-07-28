@@ -5,9 +5,37 @@
 # IDEs (https://dart.dev/tools#ides-and-editors). The analyzer can also be
 # invoked from the command line by running `flutter analyze`.
 
-# The following line activates a set of recommended lints for Flutter apps,
+# The following line activates a bundle of recommended lints for Flutter apps,
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
+
+# API验证插件配置
+analyzer:
+  plugins:
+    - tools/analyzer_plugin
+  
+  # 排除插件自身的分析
+  exclude:
+    - tools/analyzer_plugin/**
+  
+  # 强错误配置
+  strong-mode:
+    implicit-casts: false
+    implicit-dynamic: false
+  
+  # 错误处理
+  errors:
+    # API验证相关错误级别
+    api_path_validation: warning
+    api_schema_validation: warning
+    api_method_validation: warning
+    
+    # 其他常见错误配置
+    missing_required_param: error
+    missing_return: error
+    dead_code: info
+    unused_import: info
+    unused_local_variable: info
 
 linter:
   # The lint rules applied to this project can be customized in the
@@ -21,8 +49,27 @@ linter:
   # `// ignore_for_file: name_of_lint` syntax on the line or in the file
   # producing the lint.
   rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+    # 基础规则
+    avoid_print: false  # 允许在开发阶段使用print
+    prefer_single_quotes: true  # 优先使用单引号
+    
+    # API相关规则
+    prefer_const_constructors: true
+    prefer_const_literals_to_create_immutables: true
+    avoid_unnecessary_containers: true
+    
+    # 代码质量规则
+    always_declare_return_types: true
+    avoid_empty_else: true
+    avoid_returning_null_for_void: true
+    prefer_is_empty: true
+    prefer_is_not_empty: true
+    
+    # 命名规则
+    camel_case_types: true
+    file_names: true
+    non_constant_identifier_names: true
+    constant_identifier_names: true
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

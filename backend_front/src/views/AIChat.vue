@@ -55,7 +55,7 @@
 <script setup lang="ts">
 import { ref, nextTick, onMounted } from 'vue'
 import { ElMessage, type MessageParamsWithType } from 'element-plus'
-import axios from 'axios'
+import { aiApi } from '../services/api'
 
 interface Message {
   id: number
@@ -90,15 +90,12 @@ const sendMessage = async () => {
   isLoading.value = true
   
   try {
-    const response = await axios.post('/api/v1/ai/chat', {
-      message: currentInput,
-      conversation_id: null // 可以实现会话管理
-    })
+    const response = await aiApi.sendMessage(currentInput)
     
     const assistantMessage: Message = {
       id: ++messageId,
       role: 'assistant',
-      content: response.data.response,
+      content: response.response,
       timestamp: new Date()
     }
     

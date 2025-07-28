@@ -183,7 +183,6 @@ import {
   UploadFilled
 } from '@element-plus/icons-vue'
 import { subjectApi, questionBankApi, type Subject, type QuestionBank } from '../services/api'
-import httpService from '../services/http'
 
 // 接口定义已从API服务中导入
 
@@ -306,13 +305,12 @@ const handleUpload = async () => {
     uploadLoading.value = true
     const subjectId = route.params.subjectId as string
     
-    const formData = new FormData()
-    formData.append('file', uploadForm.file)
-    formData.append('name', uploadForm.name)
-    formData.append('description', uploadForm.description)
-    formData.append('subject_id', subjectId)
-    
-    await httpService.upload('/api/v1/question-banks/upload', formData)
+    await questionBankApi.uploadQuestionBank({
+      name: uploadForm.name,
+      description: uploadForm.description,
+      subject_id: Number(subjectId),
+      file: uploadForm.file!
+    })
     
     ElMessage.success('题库上传成功' as MessageParamsWithType)
     handleCloseUploadDialog()
